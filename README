@@ -1,0 +1,1 @@
+make && ./shardmap tpcb testfile
