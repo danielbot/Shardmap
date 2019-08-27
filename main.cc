@@ -342,20 +342,8 @@ int tpcb_run(int fds[5], unsigned scalefactor, unsigned iterations)
 		.lower = {}
 	};
 
-	/*
-	 * Transaction log in separate file
-	 */
-	struct pmblock *xlog;
-	struct layout xlog_layout;
-	xlog_layout.map.push_back({microlog_size, 12, (void **)&xlog, NULL});
-	xlog_layout.do_maps(fds[0]);
-	unsigned xnext = 0; // transaction redo log tail
-
-	/*
-	 * Each kvs table goes in a separate file
-	 */
 	typedef u32 id;
-	typedef u64 cash;
+	typedef s64 cash;
 	struct account { id aid, bid; cash balance; u8 pad[84]; } __attribute__((packed));
 	struct branch { id bid; cash balance; u8 pad[88]; } __attribute__((packed));
 	struct teller { id tid, bid; cash balance; u8 pad[84]; } __attribute__((packed));
@@ -366,6 +354,18 @@ int tpcb_run(int fds[5], unsigned scalefactor, unsigned iterations)
 	assert(sizeof(struct teller) == 100);
 	assert(sizeof(struct transaction) == 50);
 
+	/*
+	 * Transaction log in its own file
+	 */
+	struct pmblock *xlog;
+	struct layout xlog_layout;
+	xlog_layout.map.push_back({microlog_size, 12, (void **)&xlog, NULL});
+	xlog_layout.do_maps(fds[0]);
+	unsigned retail = 0; // redo log tail
+
+	/*
+	 * One kvs table per file
+	 */
 	struct keymap branches{head, fds[1], 100};
 	struct keymap accounts{head, fds[2], 100};
 	struct keymap tellers{head, fds[3], 100};
@@ -387,13 +387,13 @@ int tpcb_run(int fds[5], unsigned scalefactor, unsigned iterations)
 	for (unsigned n = 0; n < scalefactor; n++, bid++) {
 		struct branch data = { bid };
 		memset(data.pad, filler, sizeof data.pad);
-		branches.insert((u8 *)&bid, 4, &data);
+		branches.insert(&bid, 4, &data);
 		branch_id.push_back(bid);
 
 		for (int i = 0; i < t_per_b; i++) {
 			struct teller data = { tid, bid };
 			memset(data.pad, filler, sizeof data.pad);
-			tellers.insert((u8 *)&tid, 4, &data);
+			tellers.insert(&tid, 4, &data);
 			teller_branch.push_back(n);
 			teller_id.push_back(tid);
 			tid++;
@@ -404,7 +404,7 @@ int tpcb_run(int fds[5], unsigned scalefactor, unsigned iterations)
 		for (int i = 0; i < a_per_b; i++) {
 			struct account data = { aid, bid };
 			memset(data.pad, filler, sizeof data.pad);
-			accounts.insert((u8 *)&aid, 4, &data);
+			accounts.insert(&aid, 4, &data);
 			accounts_at_branch.push_back(aid);
 			aid++;
 		}
@@ -425,28 +425,27 @@ int tpcb_run(int fds[5], unsigned scalefactor, unsigned iterations)
 		id aid = accounts_by_branch[j][a];
 		id bid = branch_id[j];
 		id tid = teller_id[i];
+		long delta_min = -999999, delta_max = +999999;
+		long delta = (rand() % (unsigned)(delta_max - delta_min + 1)) + delta_min;
 
 		/* Acquire transaction resources (one record from each of three tables) */
 		rec_t *rec;
 		struct query { struct account *a; struct branch *b; struct teller *t; } query = {};
-		if ((rec = accounts.lookup((u8 *)&aid, 4)))
+		if ((rec = accounts.lookup(&aid, 4)))
 			query.a = (struct account *)rec;
-		if ((rec = branches.lookup((u8 *)&bid, 4)))
+		if ((rec = branches.lookup(&bid, 4)))
 			query.b = (struct branch *)rec;
-		if ((rec = tellers.lookup((u8 *)&tid, 4)))
+		if ((rec = tellers.lookup(&tid, 4)))
 			query.t = (struct teller *)rec;
 		if ((!query.a|!query.b|!query.t))
 			error_exit(1, "*** abort hid %u: aid %u bid %u tid %u (%i-%i-%i)",
 				hid, aid, bid, tid, !!query.a, !!query.b, !!query.t);
 
 		/* All resources were acquired so transaction is now guaranteed to succeed */
-		long delta_min = -999999, delta_max = +999999;
-		long delta = (rand() % (unsigned)(delta_max - delta_min + 1)) + delta_min;
-
 		/* Log redo record for replay in case of crash */
 		struct redo { id hid, aid, tid, bid; cash delta, a, b, t; };
 		struct redo redo = {hid, aid, tid, bid, delta, query.a->balance, query.b->balance, query.t->balance };
-		log_commit(xlog, &redo, sizeof redo, &xnext);
+		log_commit(xlog, &redo, sizeof redo, &retail);
 
 		/* update balances in memory mapped records */
 		query.a->balance += delta;
@@ -462,7 +461,7 @@ int tpcb_run(int fds[5], unsigned scalefactor, unsigned iterations)
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
 		struct transaction transaction = { aid, tid, bid, query.a->balance, tv };
-		history.insert((u8 *)&hid, 4, &transaction);
+		history.insert(&hid, 4, &transaction);
 	}
 
 	return 0;
