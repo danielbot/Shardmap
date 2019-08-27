@@ -184,7 +184,7 @@ bool rb_check(struct recinfo ri)
 	return errs;
 }
 
-rec_t *rb_lookup(struct recinfo ri, const u8 *key, u8 len, u16 lowhash)
+rec_t *rb_lookup(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 {
 	struct rb *rb = irb(ri);
 	rec_t *rec = ri.data + rb->size;
@@ -204,7 +204,7 @@ rec_t *rb_lookup(struct recinfo ri, const u8 *key, u8 len, u16 lowhash)
 	return NULL;
 }
 
-rec_t *rb_create(struct recinfo ri, const u8 *key, u8 len, u16 lowhash, const void *data)
+rec_t *rb_create(struct recinfo ri, const void *key, u8 len, u16 lowhash, const void *data)
 {
 	struct rb *rb = irb(ri);
 	unsigned reclen = ri.reclen;
@@ -350,7 +350,7 @@ create:
 	return rec;
 }
 
-int rb_delete(struct recinfo ri, const u8 *key, u8 len, u16 lowhash)
+int rb_delete(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 {
 	struct rb *rb = irb(ri);
 	rec_t *rec = ri.data + rb->size;

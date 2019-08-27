@@ -13,7 +13,7 @@ extern "C" {
 #include "shardmap.h"
 
 extern "C" {
-uint64_t keyhash(const unsigned char *in, unsigned len);
+uint64_t keyhash(const void *in, unsigned len);
 int uform(char *buf, int len, unsigned long n, unsigned base);
 }
 
@@ -918,7 +918,7 @@ int keymap::remove(const char *name, unsigned len)
 	return remove((const u8 *)name, len);
 }
 
-rec_t *keymap::lookup(const u8 *name, unsigned len)
+rec_t *keymap::lookup(const void *name, unsigned len)
 {
 	hashkey_t key = keyhash(name, len) & keymask;
 	struct shard *shard = getshard(key >> sigbits, 0);
@@ -944,7 +944,7 @@ bool shard::is_lower() { return tx == map->lower - map->tiers; }
 
 unsigned long tests = 0, probes = 0;
 
-rec_t *shard::lookup(const u8 *name, unsigned len, hashkey_t key)
+rec_t *shard::lookup(const void *name, unsigned len, hashkey_t key)
 {
 	trace("find '%.*s'", len, name);
 	cell_t lowkey = key & bitmask(lowbits);
@@ -1248,7 +1248,7 @@ int keymap::unify()
 
 enum {verify = 0};
 
-rec_t *keymap::insert(const u8 *name, unsigned namelen, const void *data, bool unique)
+rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool unique)
 {
 	assert(sizeof(struct insert_logent) == 24);
 
@@ -1320,14 +1320,14 @@ rec_t *keymap::insert(const u8 *name, unsigned namelen, const void *data, bool u
 	}
 }
 
-int keymap::remove(const u8 *name, unsigned len)
+int keymap::remove(const void *name, unsigned len)
 {
 	trace("delete '%.*s'", len, name);
 	hashkey_t key = keyhash((const u8 *)name, len) & keymask;
 	return getshard(key >> sigbits, 1)->remove(name, len, key); // wrong! could create a shard just to remove a nonexistent entry
 }
 
-int shard::remove(const u8 *name, unsigned len, hashkey_t key)
+int shard::remove(const void *name, unsigned len, hashkey_t key)
 {
 	cell_t lowkey = key & bitmask(lowbits);
 	unsigned link = (key >> lowbits) & bitmask(tablebits);

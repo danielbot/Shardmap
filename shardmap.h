@@ -112,10 +112,10 @@ struct shard
 	shard(struct keymap *map, const struct tier *tier, unsigned i, unsigned tablebits, unsigned linkbits);
 	bool is_lower();
 	const struct tier &tier() const;
-	rec_t *lookup(const u8 *name, unsigned len, hashkey_t key);
+	rec_t *lookup(const void *name, unsigned len, hashkey_t key);
 	int insert(const hashkey_t key, const loc_t loc);
 	int remove(const hashkey_t key, const loc_t loc);
-	int remove(const u8 *name, unsigned len, hashkey_t key);
+	int remove(const void *name, unsigned len, hashkey_t key);
 	unsigned buckets();
 	bool bucket_used(const unsigned i);
 	unsigned next_entry(const unsigned link);
@@ -132,7 +132,7 @@ struct shard
 	int load_from_media();
 	int flatten();
 	void reshard_part(struct shard *out, unsigned more_shards, unsigned part);
-protected: // disallow on stack because self destructs
+protected: // disallow stack instance because of self destruct
 	~shard();
 	friend class keymap; // allow delete
 };
@@ -207,11 +207,11 @@ struct keymap : bigmap
 	int insert_and_grow(struct shard *&shard, const hashkey_t key, const loc_t loc);
 	void showlog();
 	void checklog(unsigned flags);
-	rec_t *lookup(const u8 *name, unsigned len);
-	rec_t *insert(const u8 *name, unsigned namelen, const void *data, bool unique = 1);
-	int remove(const u8 *name, unsigned len);
+	rec_t *insert(const void *name, unsigned namelen, const void *data, bool unique = 1);
 	rec_t *insert(const char *name, unsigned namelen, const void *data, bool unique = 1);
+	rec_t *lookup(const void *name, unsigned len);
 	rec_t *lookup(const char *name, unsigned len);
+	int remove(const void *name, unsigned len);
 	int remove(const char *name, unsigned len);
     int unify();
 };
