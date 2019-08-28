@@ -61,70 +61,49 @@ enum {split_order = 0, totalentries_order = 26};
 #include <string>
 
 #define trace trace_off
-#define warn trace_off
+#define warn trace_on
 
 struct recinfo { void *data; unsigned size, reclen; }; // defined in multiple places!
 
-template <class T1, class T2>
-duopack<T1, T2>::duopack(const unsigned bits0) : mask(bitmask(bits0)), bits0(bits0)
-{
-	if (0)
-		printf("bits0 %i\n", bits0);
-}
+/* Variable width field packing */
 
-template <class T1, class T2>
-u64 duopack<T1, T2>::pack(const T1 a, const T2 b) const
-{
-	return (power2(bits0, b)) | a;
-}
+template <class T1, class T2> duopack<T1, T2>::duopack(const unsigned bits0) :
+	mask(bitmask(bits0)), bits0(bits0)
+{ trace("bits0 %i", bits0); }
 
-template <class T1, class T2>
-void duopack<T1, T2>::unpack(const u64 packed, T1 &a, T2 &b) const
-{
-	a = first(packed);
-	b = second(packed);
-}
+template <class T1, class T2> u64 duopack<T1, T2>::pack(const T1 a, const T2 b) const
+{ return (power2(bits0, b)) | a; }
 
-template <class T1, class T2>
-T1 duopack<T1, T2>::first(const u64 packed) const { return packed & mask; }
-template <class T1, class T2>
-T2 duopack<T1, T2>::second(const u64 packed) const { return packed >> bits0; }
+template <class T1, class T2> void duopack<T1, T2>::unpack(const u64 packed, T1 &a, T2 &b) const
+{ a = first(packed); b = second(packed); }
 
-template <class T1, class T2, class T3>
-tripack<T1, T2, T3>::tripack(const unsigned bits0, const unsigned bits1) :
-	mask2(bitmask(bits0 + bits1)),
-	bits0(bits0), bits1(bits1)
-{
-	if (0)
-		printf("bits0 %i bits1 %i\n", bits0, bits1);
-}
+template <class T1, class T2> T1 duopack<T1, T2>::first(const u64 packed) const
+{ return packed & mask; }
 
-template <class T1, class T2, class T3>
-u64 tripack<T1, T2, T3>::pack(const T1 a, const T2 b, const T3 c) const
-{
-	return power2(bits0 + bits1, c) | ((u64)b << bits0) | a;
-}
+template <class T1, class T2> T2 duopack<T1, T2>::second(const u64 packed) const
+{ return packed >> bits0; }
 
-template <class T1, class T2, class T3>
-void tripack<T1, T2, T3>::unpack(const u64 packed, T1 &a, T2 &b, T3 &c) const
-{
-	a = first(packed);
-	b = second(packed);
-	c = third(packed);
-}
+template <class T1, class T2, class T3> tripack<T1, T2, T3>::tripack(const unsigned bits0, const unsigned bits1) :
+	mask2(bitmask(bits0 + bits1)), bits0(bits0), bits1(bits1)
+{ trace("bits0 %i bits1 %i", bits0, bits1); }
 
-template <class T1, class T2, class T3>
-u64 tripack<T1, T2, T3>::first(const u64 packed) const { return packed & (mask2 >> bits1); }
-template <class T1, class T2, class T3>
-u64 tripack<T1, T2, T3>::second(const u64 packed) const { return (packed & mask2) >> bits0; }
-template <class T1, class T2, class T3>
-u64 tripack<T1, T2, T3>::third(const u64 packed) const { return packed >> (bits0 + bits1); }
+template <class T1, class T2, class T3> u64 tripack<T1, T2, T3>::pack(const T1 a, const T2 b, const T3 c) const
+{ return power2(bits0 + bits1, c) | ((u64)b << bits0) | a; }
 
-template <class T1, class T2, class T3>
-void tripack<T1, T2, T3>::set_first(u64 &packed, const T1 field) const
-{
-	packed = (packed & ~(mask2 >> bits1)) | field;
-}
+template <class T1, class T2, class T3> void tripack<T1, T2, T3>::unpack(const u64 packed, T1 &a, T2 &b, T3 &c) const
+{ a = first(packed); b = second(packed); c = third(packed); }
+
+template <class T1, class T2, class T3> u64 tripack<T1, T2, T3>::first(const u64 packed) const
+{ return packed & (mask2 >> bits1); }
+
+template <class T1, class T2, class T3> u64 tripack<T1, T2, T3>::second(const u64 packed) const
+{ return (packed & mask2) >> bits0; }
+
+template <class T1, class T2, class T3> u64 tripack<T1, T2, T3>::third(const u64 packed) const
+{ return packed >> (bits0 + bits1); }
+
+template <class T1, class T2, class T3> void tripack<T1, T2, T3>::set_first(u64 &packed, const T1 field) const
+{ packed = (packed & ~(mask2 >> bits1)) | field; }
 
 /* Memory layout setup */
 
@@ -285,7 +264,7 @@ void shard::rewind()
 count_t &shard::mediacount() const { return tier().countbuf[ix]; }
 unsigned shard::buckets() const { return power2(tablebits); }
 
-void shard::engrave()
+void shard::imprint()
 {
 	struct {char a[4]; u16 b[2];} magic = {
 		{'f', 'i', 'f', 'o'},
@@ -544,7 +523,7 @@ struct shard *keymap::new_shard(const struct tier *tier, unsigned i, unsigned ta
 {
 	struct shard *shard = new struct shard(this, tier, i, tablebits, guess_linkbits(tablebits, loadfactor));
 	if (virgin)
-		shard->engrave();
+		shard->imprint();
 	return shard;
 }
 

@@ -124,7 +124,7 @@ struct shard
 	void empty();
 	count_t &mediacount() const;
 	unsigned buckets() const;
-	void engrave();
+	void imprint();
 	void walk_bucket(std::function<void(hashkey_t key, loc_t loc)> fn, unsigned bucket);
 	void walk_buckets(std::function<void(unsigned bucket)> fn);
 	void walk(std::function<void(hashkey_t key, loc_t loc)> fn);
