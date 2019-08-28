@@ -180,6 +180,7 @@ tier::~tier()
 	trace_off("destroy %p countbuf %p", this, countbuf);
 }
 #endif
+
 unsigned tier::shards() const { return power2(mapbits); }
 bool tier::is_empty() const { return !stridebits; }
 
@@ -485,7 +486,7 @@ unsigned calc_sigbits(const unsigned tablebits, const fixed8 loadfactor, const u
 	return sigbits;
 }
 
-static unsigned mapid = 1;
+static unsigned mapid = 1; // could be different every run, is that ok??
 
 keymap::keymap(struct header &header, const int fd, unsigned reclen) :
 	bigmap(), // unfortunately impossible to initialize bigmap members here
