@@ -29,8 +29,6 @@ typedef uint8_t u8;
 
 static u8 rb_hash(u16 ihash) { return ihash % 255; }
 
-struct recinfo { void *data; unsigned size, reclen; }; // defined in multiple places!
-
 #include "debug.h"
 #include "recops.h"
 

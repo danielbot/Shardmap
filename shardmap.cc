@@ -63,8 +63,6 @@ enum {split_order = 0, totalentries_order = 26};
 #define trace trace_off
 #define warn trace_on
 
-struct recinfo { void *data; unsigned size, reclen; }; // defined in multiple places!
-
 /* Variable width field packing */
 
 template <class T1, class T2> duopack<T1, T2>::duopack(const unsigned bits0) :
