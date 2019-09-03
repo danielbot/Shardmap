@@ -12,9 +12,9 @@ struct rb : recinfo
 		return rb_big(*this);
 	}
 
-	virtual int free()
+	virtual int more()
 	{
-		return rb_free(*this);
+		return rb_more(*this);
 	}
 
 	virtual void dump()

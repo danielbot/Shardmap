@@ -7,7 +7,7 @@ struct recinfo { void *data; unsigned size, reclen; };
 
 int rb_walk(struct recinfo ri, rb_walk_fn fn, void *context);
 int rb_big(struct recinfo ri);
-int rb_free(struct recinfo ri);
+int rb_more(struct recinfo ri);
 void rb_dump(struct recinfo ri);
 bool rb_check(struct recinfo ri);
 void *rb_key(struct recinfo ri, unsigned which, unsigned *len);

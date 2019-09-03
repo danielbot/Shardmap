@@ -76,7 +76,7 @@ int rb_big(struct recinfo ri)
 	return big > maxname ? maxname : big;
 }
 
-int rb_free(struct recinfo ri)
+int rb_more(struct recinfo ri)
 {
 	struct rb *rb = irb(ri);
 	return rb_gap(rb) + rb->free;
