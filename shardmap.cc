@@ -11,6 +11,7 @@ extern "C" {
 }
 
 #include "shardmap.h"
+#include "recops.cc"
 
 extern "C" {
 uint64_t keyhash(const void *in, unsigned len);
@@ -937,7 +938,7 @@ rec_t *shard::lookup(const void *name, unsigned len, hashkey_t key)
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
 //				struct rb *rb = map->map(loc);
-				struct recinfo ri{
+				struct rb ri{
 					.data = (loc == map->path[0].map.loc ? map->path[0].map.data :
 						({
 							map->peek = (struct datamap){.data = ext_bigmap_mem(map, loc), .loc = loc};
@@ -945,7 +946,7 @@ rec_t *shard::lookup(const void *name, unsigned len, hashkey_t key)
 						})),
 					.size = map->blocksize,
 					.reclen = map->reclen};
-				rec_t *rec = rb_lookup(ri, name, len, key);
+				rec_t *rec = ri.lookup(name, len, key);
 				if (rec)
 					return rec;
 			}
@@ -1050,9 +1051,9 @@ u8 *ext_bigmap_mem(struct bigmap *map, loc_t loc)
 	return map->rbspace + power2(map->blockbits, loc);
 }
 
-const struct recinfo sinkinfo(struct bigmap *map)
+const struct rb sinkinfo(struct bigmap *map)
 {
-	return (struct recinfo){map->path[0].map.data, map->blocksize, map->reclen};
+	return (struct rb){map->path[0].map.data, map->blocksize, map->reclen};
 }
 
 void ext_bigmap_map(struct bigmap *map, unsigned level, loc_t loc)
@@ -1243,11 +1244,11 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 	}
 
 	while (1) {
-		struct recinfo ri = sinkinfo(this);
+		struct rb ri = sinkinfo(this);
 		if (verify)
-			assert(!rb_check(ri));
+			assert(!ri.check());
 
-		rec_t *rec = rb_create(ri, name, namelen, key, data);
+		rec_t *rec = ri.create(name, namelen, key, data);
 		if (!is_errcode(rec)) {
 			loc_t loc = path[0].map.loc;
 			/*
@@ -1284,17 +1285,17 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 		}
 
 		if (0)
-			rb_dump(ri);
+			ri.dump();
 
 		assert(errcode(rec) == -ENOSPC);
-		trace("block full (%i of %i)", blocksize - rb_free(ri), blocksize);
+		trace("block full (%i of %i)", blocksize - ri.free(), blocksize);
 
 		if (burst()) {
 			trace("block full --> unify");
 			unify();
 		}
 
-		bigmap_try(this, namelen, rb_big(ri));
+		bigmap_try(this, namelen, ri.big());
 	}
 }
 
@@ -1320,7 +1321,7 @@ int shard::remove(const void *name, unsigned len, hashkey_t key)
 				trace("probe block %x", loc);
 				probes++;
 //				struct rb *rb = map->map(loc);
-				struct recinfo ri{
+				struct rb ri{
 					.data = (loc == map->path[0].map.loc ? map->path[0].map.data :
 						({
 							map->peek = (struct datamap){.data = ext_bigmap_mem(map, loc), .loc = loc};
@@ -1328,12 +1329,12 @@ int shard::remove(const void *name, unsigned len, hashkey_t key)
 						})),
 					.size = map->blocksize,
 					.reclen = map->reclen};
-				int err = rb_delete(ri, name, len, key);
+				int err = ri.remove(name, len, key);
 				if (!err) {
-					trace("delete %i/%i, big = %i", loc, len, rb_big(ri));
+					trace("delete %i/%i, big = %i", loc, len, ri.big());
 					if (remove(key, loc) == -ENOENT)
 						break;
-					bigmap_free(map, loc, rb_big(ri));
+					bigmap_free(map, loc, ri.big());
 					goto logging;
 				}
 			}
@@ -1495,7 +1496,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct recinfo ri{
+				struct rb ri{
 					.data = (loc == sm.path[0].map.loc ? sm.path[0].map.data :
 						({
 							sm.peek = (struct datamap){.data = ext_bigmap_mem(&sm, loc), .loc = loc};
@@ -1503,7 +1504,7 @@ int test(int argc, const char *argv[])
 						})),
 					.size = sm.blocksize,
 					.reclen = sm.reclen};
-				rb_walk(ri, actor, &context);
+				ri.walk(actor, &context);
 			}
 		}
 		trace_on("found %i entries", context.count);
@@ -1610,7 +1611,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct recinfo ri{
+				struct rb ri{
 					.data = (loc == sm.path[0].map.loc ? sm.path[0].map.data :
 						({
 							sm.peek = (struct datamap){.data = ext_bigmap_mem(&sm, loc), .loc = loc};
@@ -1618,7 +1619,7 @@ int test(int argc, const char *argv[])
 						})),
 					.size = sm.blocksize,
 					.reclen = sm.reclen};
-				rb_walk(ri, actor, &context);
+				ri.walk(actor, &context);
 			}
 		}
 		trace_on("found %i entries", context.count);
