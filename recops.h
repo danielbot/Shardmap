@@ -15,4 +15,4 @@ rec_t *rb_create(struct recinfo ri, const void *key, u8 len, u16 lowhash, const 
 rec_t *rb_lookup(struct recinfo ri, const void *key, u8 len, u16 lowhash);
 int rb_delete(struct recinfo ri, const void *key, u8 len, u16 lowhash);
 void rb_init(struct recinfo ri);
-bool is_rb(struct recinfo ri);
+//bool is_rb(struct recinfo ri); // implement me, use me!

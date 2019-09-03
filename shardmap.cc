@@ -1051,7 +1051,7 @@ u8 *ext_bigmap_mem(struct bigmap *map, loc_t loc)
 	return map->rbspace + power2(map->blockbits, loc);
 }
 
-const struct rb sinkinfo(struct bigmap *map)
+struct rb sinkinfo(struct bigmap *map)
 {
 	return (struct rb){map->path[0].map.data, map->blocksize, map->reclen};
 }
@@ -1062,7 +1062,7 @@ void ext_bigmap_map(struct bigmap *map, unsigned level, loc_t loc)
 		if (map->blocks >= map->maxblocks)
 			error_exit(1, "too many blocks (%u)", map->blocks + 1);
 		if (!level)
-			rb_init(sinkinfo(map));
+			sinkinfo(map).init();
 		map->blocks++;
 	}
 	map->path[level].map.loc = loc;
@@ -1076,7 +1076,7 @@ void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm)
 
 unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm)
 {
-	return rb_big({dm->data, map->blocksize, map->reclen});
+	return (struct rb){dm->data, map->blocksize, map->reclen}.big();
 }
 
 /* High level db ops */

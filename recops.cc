@@ -1,4 +1,5 @@
-struct rb : recinfo {
+struct rb : recinfo
+{
 	rb (void *data, unsigned size, unsigned reclen) : recinfo{data, size, reclen} {}
 
 	virtual int walk(rb_walk_fn fn, void *context)
@@ -51,8 +52,8 @@ struct rb : recinfo {
 		rb_init(*this);
 	}
 
-	virtual bool is_rb()
-	{
-		return ::is_rb(*this);
-	}
+//	virtual bool is_rb()
+//	{
+//		return ::is_rb(*this);
+//	}
 };
