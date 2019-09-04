@@ -33,7 +33,7 @@ enum {header_size = sizeof(struct rb) };
 static inline struct rb *irb(struct recinfo ri)
 {
 	struct rb *rb = (struct rb *)ri.data;
-	//assert(!memcmp(rb->magic, "DE", 2));
+	assert(!memcmp(rb->magic, "DE", 2));
 	//assert(ri.reclen == rb->reclen); // might add this field for redundancy
 	return rb;
 }
@@ -54,7 +54,7 @@ static unsigned rb_gap(struct rb *rb)
 
 void rb_init(struct recinfo ri)
 {
-	*(struct rb *)ri.data = (struct rb){.size = ri.size, /*.magic = {"DE"}*/};
+	*(struct rb *)ri.data = (struct rb){.size = ri.size, .magic = {'D', 'E'}};
 }
 
 int rb_big(struct recinfo ri)
