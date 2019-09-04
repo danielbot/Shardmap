@@ -54,7 +54,8 @@ static unsigned rb_gap(struct rb *rb)
 
 void rb_init(struct recinfo ri)
 {
-	*(struct rb *)ri.data = (struct rb){.size = ri.size, .magic = {'R', 'B'}};
+	*(struct rb *)ri.data = (struct rb){.size = ri.size};
+	memcpy(ri.data, "RB", 2);
 }
 
 int rb_big(struct recinfo ri)
