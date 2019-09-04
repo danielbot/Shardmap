@@ -27,8 +27,8 @@ struct rb
 	struct tabent table[];
 };
 
-enum {tabent_size = sizeof(struct tabent)};
-enum {header_size = sizeof(struct rb) };
+enum {tabent_size = sizeof(struct tabent), header_size = sizeof(struct rb) };
+enum {taglen = 0 }; // optional one byte variable data length borrowed from key
 
 static inline struct rb *irb(struct recinfo ri)
 {
@@ -83,15 +83,15 @@ void rb_dump(struct recinfo ri)
 		printf("%u entries: ", rb->count);
 	char sep = 1 ? ' ' : '\n';
 	for (unsigned i = 0; i < rb->count; i++) {
-		unsigned len = rb->table[i].len;
-		rec -= reclen + len;
+		unsigned keylen = rb->table[i].len;
+		rec -= reclen + keylen;
 		if (0)
-			printf("%u\n", len);
+			printf("%u\n", keylen);
 		if (rb->table[i].hash == holecode)
-			printf("(%u)%c", len, sep);
+			printf("(%u)%c", keylen, sep);
 		else
-//			printf("%.*s:%u%c", len, rec + ri.reclen, *(u32 *)rec, sep);
-			printf("%x.%u:%u%c", rb->table[i].hash, len, *(u32 *)rec, sep);
+//			printf("%.*s:%u%c", keylen, rec + ri.reclen, *(u32 *)rec, sep);
+			printf("%x.%u:%u%c", rb->table[i].hash, keylen, *(u32 *)rec, sep);
 	}
 	printf("gap %i free %i holes %i\n", rb_gap(rb), rb->free, rb->holes);
 }
@@ -108,8 +108,7 @@ void *rb_key(struct recinfo ri, unsigned which, unsigned *ret) // untested!
 	}
 	for (unsigned i = 0; i < which; i++)
 		rec = rec - (reclen + rb->table[i].len);
-	unsigned len = *ret = rb->table[which].len;
-	rec -= reclen + len;
+	rec -= reclen + (*ret = rb->table[which].len);
 	return rb->table[which].hash == holecode ? NULL : (rec + reclen);
 }
 
@@ -120,7 +119,7 @@ bool rb_check(struct recinfo ri)
 	unsigned reclen = ri.reclen;
 	unsigned scan_entry_count = 0, scan_hole_count = 0, scan_hole_space = 0, scan_entry_space = 0;
 	unsigned count = rb->count;
-	unsigned max_entries = (rb->size - header_size) / (reclen + 1 + tabent_size);
+	unsigned max_entries = (rb->size - header_size) / (reclen + tabent_size + 1);
 	unsigned errs = 0;
 
 	if (count > max_entries && ++errs) {
@@ -131,8 +130,8 @@ bool rb_check(struct recinfo ri)
 	void *table_top = rb->table + count;
 
 	for (unsigned i = 0; i < count; i++) {
-		unsigned len = rb->table[i].len;
-		rec -= reclen + len;
+		unsigned keylen = rb->table[i].len;
+		rec -= reclen + keylen;
 
 		if ((void *)rec < table_top && ++errs) {
 			printf("entries overlap table\n");
@@ -140,10 +139,10 @@ bool rb_check(struct recinfo ri)
 		}
 
 		if (rb->table[i].hash == holecode) {
-			scan_hole_space += len;
+			scan_hole_space += keylen;
 			scan_hole_count++;
 		} else {
-			scan_entry_space += len;
+			scan_entry_space += keylen;
 			scan_entry_count++;
 		}
 	}
@@ -193,7 +192,7 @@ rec_t *rb_lookup(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 	return NULL;
 }
 
-rec_t *rb_create(struct recinfo ri, const void *key, u8 len, u16 lowhash, const void *data)
+rec_t *rb_create(struct recinfo ri, const void *newkey, u8 newlen, u16 lowhash, const void *data)
 {
 	struct rb *rb = irb(ri);
 	unsigned reclen = ri.reclen;
@@ -206,9 +205,9 @@ rec_t *rb_create(struct recinfo ri, const void *key, u8 len, u16 lowhash, const 
 	unsigned use_entry;
 	rec_t *last_re;
 
-	if (gap >= reclen + len + tabent_size) {
+	if (gap >= reclen + newlen + tabent_size) {
 		trace("fast path create");
-		rb->used += reclen + len;
+		rb->used += reclen + newlen;
 		rec = ri.data + rb->size - rb->used;
 		pos = rb->count++;
 		goto create;
@@ -223,12 +222,12 @@ rec_t *rb_create(struct recinfo ri, const void *key, u8 len, u16 lowhash, const 
 	 * to be tested to determine whether it means exactly full or something more
 	 * problematic. Reconsider all this in the light of errcode pointer wrapper.
 	 */
-	if (!rb->holes || gap + rb->free < len)
+	if (!rb->holes || gap + rb->free < newlen)
 		return (rec_t *)errwrap(-ENOSPC);
 
 	/* walk backward in dict until enough hole space found */
 	/*rec_t **/ last_re = ri.data + rb->size - rb->used;
-	/*int*/ need = len - gap;
+	/*int*/ need = newlen - gap;
 	/*int*/ holespace = 0;
 	rec = last_re;
 	/*unsigned keylen;*/
@@ -248,8 +247,8 @@ rec_t *rb_create(struct recinfo ri, const void *key, u8 len, u16 lowhash, const 
 
 	/*unsigned*/ use_entry = pos;
 	holespace -= keylen; // create new entry here using this header
-	need = len - keylen;
-	trace("==> create new entry at %u len %u keylen %u", pos, len, keylen);
+	need = newlen - keylen;
+	trace("==> create new entry at %u newlen %u keylen %u", pos, newlen, keylen);
 	/*
 	 * Found a free entry, there are now three cases:
 	 *  1) need < 0: too small, move down
@@ -291,7 +290,7 @@ rec_t *rb_create(struct recinfo ri, const void *key, u8 len, u16 lowhash, const 
 			rec = rec + reclen + keylen;
 			pos--;
 		} while (1);
-		assert(len - keylen == movedown);
+		assert(newlen - keylen == movedown);
 		rec = rec - movedown;
 		goto reuse;
 	}
@@ -339,9 +338,9 @@ reuse:
 	rb->free -= keylen;
 	rb->holes--;
 create:
-	rb->table[pos] = (struct tabent){rb_hash(lowhash), len};
+	rb->table[pos] = (struct tabent){rb_hash(lowhash), newlen};
 	memcpy(rec, data, ri.reclen);
-	memcpy(rec + reclen, key, len);
+	memcpy(rec + reclen, newkey, newlen);
 	return rec;
 }
 
@@ -392,10 +391,10 @@ int rb_walk(struct recinfo ri, rb_walk_fn fn, void *context)
 	unsigned reclen = ri.reclen;
 
 	for (unsigned i = 0; i < rb->count; i++) {
-		unsigned len = rb->table[i].len;
-		rec -= reclen + len;
+		unsigned keylen = rb->table[i].len;
+		rec -= reclen + keylen;
 		if (rb->table[i].hash != holecode)
-			fn(context, rec + reclen, len, rec);
+			fn(context, rec + reclen, keylen, rec);
 	}
 	return 0;
 }
