@@ -7,11 +7,7 @@
 extern "C" {
 #include "size.h"
 #include "debug.h"
-#include "recops.h"
 }
-
-#include "shardmap.h"
-#include "recops.cc"
 
 extern "C" {
 uint64_t keyhash(const void *in, unsigned len);
@@ -31,6 +27,11 @@ int uform(char *buf, int len, unsigned long n, unsigned base);
 #define tracedump_on hexdump
 #define tracedump trace_off
 #define trace_geom trace_on
+#define trace trace_off
+#define warn trace_on
+
+#include "recops.cc"
+#include "shardmap.h"
 
 void errno_exit(unsigned exitcode);
 void error_exit(unsigned exitcode, const char *reason, ...);
@@ -60,9 +61,6 @@ enum {split_order = 0, totalentries_order = 26};
 #include <algorithm> // min
 #include <utility> // swap
 #include <string>
-
-#define trace trace_off
-#define warn trace_on
 
 /* Variable width field packing */
 
@@ -937,8 +935,8 @@ rec_t *shard::lookup(const void *name, unsigned len, hashkey_t key)
 				loc_t loc = trio.second(entry);
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
-//				struct rb *rb = map->map(loc);
-				struct rb ri{
+//				struct Rb *rb = map->map(loc);
+				struct Rb ri{
 					.data = (loc == map->path[0].map.loc ? map->path[0].map.data :
 						({
 							map->peek = (struct datamap){.data = ext_bigmap_mem(map, loc), .loc = loc};
@@ -1051,9 +1049,9 @@ u8 *ext_bigmap_mem(struct bigmap *map, loc_t loc)
 	return map->rbspace + power2(map->blockbits, loc);
 }
 
-struct rb sinkinfo(struct bigmap *map)
+struct Rb sinkinfo(struct bigmap *map)
 {
-	return (struct rb){map->path[0].map.data, map->blocksize, map->reclen};
+	return (struct Rb){map->path[0].map.data, map->blocksize, map->reclen};
 }
 
 void ext_bigmap_map(struct bigmap *map, unsigned level, loc_t loc)
@@ -1076,7 +1074,7 @@ void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm)
 
 unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm)
 {
-	return (struct rb){dm->data, map->blocksize, map->reclen}.big();
+	return (struct Rb){dm->data, map->blocksize, map->reclen}.big();
 }
 
 /* High level db ops */
@@ -1244,7 +1242,7 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 	}
 
 	while (1) {
-		struct rb ri = sinkinfo(this);
+		struct Rb ri = sinkinfo(this);
 		if (verify)
 			assert(!ri.check());
 
@@ -1320,8 +1318,8 @@ int shard::remove(const void *name, unsigned len, hashkey_t key)
 				loc = trio.second(entry);
 				trace("probe block %x", loc);
 				probes++;
-//				struct rb *rb = map->map(loc);
-				struct rb ri{
+//				struct Rb *rb = map->map(loc);
+				struct Rb ri{
 					.data = (loc == map->path[0].map.loc ? map->path[0].map.data :
 						({
 							map->peek = (struct datamap){.data = ext_bigmap_mem(map, loc), .loc = loc};
@@ -1496,7 +1494,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct rb ri{
+				struct Rb ri{
 					.data = (loc == sm.path[0].map.loc ? sm.path[0].map.data :
 						({
 							sm.peek = (struct datamap){.data = ext_bigmap_mem(&sm, loc), .loc = loc};
@@ -1611,7 +1609,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct rb ri{
+				struct Rb ri{
 					.data = (loc == sm.path[0].map.loc ? sm.path[0].map.data :
 						({
 							sm.peek = (struct datamap){.data = ext_bigmap_mem(&sm, loc), .loc = loc};

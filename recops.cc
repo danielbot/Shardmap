@@ -1,6 +1,8 @@
-struct rb : recinfo
+#include "recops.c"
+
+struct Rb : recinfo
 {
-	rb (void *data, unsigned size, unsigned reclen) : recinfo{data, size, reclen} {}
+	Rb (void *data, unsigned size, unsigned reclen) : recinfo{(u8 *)data, size, reclen} {}
 
 	virtual int walk(rb_walk_fn fn, void *context)
 	{

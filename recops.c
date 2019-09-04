@@ -8,29 +8,13 @@
  *
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdarg.h>
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
+#include "recops.h"
 
 enum { cleanup = 0, cleaned = 0xee, deleted = 0xdd, holecode = 0xff };
 
-#define trace trace_off
-
-typedef uint64_t u64;
-typedef uint32_t u32;
-typedef uint16_t u16;
-typedef uint8_t u8;
-
 static u8 rb_hash(u16 ihash) { return ihash % 255; }
 
-#include "debug.h"
-#include "recops.h"
+struct tabent { u8 hash; u8 len; };
 
 struct rb
 {
@@ -40,7 +24,7 @@ struct rb
 	u16 count; /* total entries including free entries */
 	u16 holes; /* number of free entries created by delete */
 	char magic[2];
-	struct tabent { u8 hash; u8 len; } table[];
+	struct tabent table[];
 };
 
 enum {tabent_size = sizeof(struct tabent)};
@@ -48,22 +32,22 @@ enum {header_size = sizeof(struct rb) };
 
 static inline struct rb *irb(struct recinfo ri)
 {
-	struct rb *rb = ri.data;
-	assert(!memcmp(rb->magic, "DE", 2));
+	struct rb *rb = (struct rb *)ri.data;
+//	assert(!memcmp(rb->magic, "DE", 2));
 	//assert(ri.reclen == rb->reclen); // might add this field for redundancy
 	return rb;
 }
 
 static unsigned rb_gap(struct rb *rb)
 {
-	return (void *)rb + rb->size - rb->used - (void *)(rb->table + rb->count);
+	return (u8 *)rb + rb->size - rb->used - (u8 *)(rb->table + rb->count);
 }
 
 /* Exports */
 
 void rb_init(struct recinfo ri)
 {
-	*(struct rb *)ri.data = (struct rb){.size = ri.size, .magic = {"DE"}};
+	*(struct rb *)ri.data = (struct rb){.size = ri.size, /*.magic = {"DE"}*/};
 }
 
 int rb_big(struct recinfo ri)
@@ -89,7 +73,7 @@ void rb_dump(struct recinfo ri)
 
 	if (1)
 		printf("%u entries: ", rb->count);
-	rec_t *rec = ri.data + rb->size;
+	rec_t *rec = (rec_t *)(ri.data + rb->size);
 	char sep = 1 ? ' ' : '\n';
 	for (unsigned i = 0; i < rb->count; i++) {
 		unsigned len = rb->table[i].len;
@@ -109,7 +93,7 @@ void rb_dump(struct recinfo ri)
 void *rb_key(struct recinfo ri, unsigned which, unsigned *ret) // untested!
 {
 	struct rb *rb = irb(ri);
-	rec_t *rec = ri.data + rb->size;
+	rec_t *rec = (rec_t *)(ri.data + rb->size);
 	unsigned reclen = ri.reclen;
 	if (which >= rb->count) {
 		*ret = 0;
@@ -136,7 +120,7 @@ bool rb_check(struct recinfo ri)
 		count = max_entries;
 	}
 
-	rec_t *rec = ri.data + rb->size;
+	rec_t *rec = (rec_t *)(ri.data + rb->size);
 	void *table_top = rb->table + count;
 
 	for (unsigned i = 0; i < count; i++) {
@@ -185,7 +169,7 @@ bool rb_check(struct recinfo ri)
 rec_t *rb_lookup(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 {
 	struct rb *rb = irb(ri);
-	rec_t *rec = ri.data + rb->size;
+	rec_t *rec = (rec_t *)(ri.data + rb->size);
 	unsigned reclen = ri.reclen;
 	unsigned hash = rb_hash(lowhash);
 	assert(hash != holecode);
@@ -210,6 +194,11 @@ rec_t *rb_create(struct recinfo ri, const void *key, u8 len, u16 lowhash, const 
 	rec_t *rec;
 	trace("hash %x gap %u free %u", rb_hash(lowhash), gap, rb->free);
 
+	int need, holespace;
+	unsigned keylen;
+	unsigned use_entry;
+	rec_t *last_re;
+
 	if (gap >= reclen + len + tabent_size) {
 		trace("fast path create");
 		rb->used += reclen + len;
@@ -228,13 +217,14 @@ rec_t *rb_create(struct recinfo ri, const void *key, u8 len, u16 lowhash, const 
 	 * problematic. Reconsider all this in the light of errcode pointer wrapper.
 	 */
 	if (!rb->holes || gap + rb->free < len)
-		return errwrap(-ENOSPC);
+		return (rec_t *)errwrap(-ENOSPC);
 
 	/* walk backward in dict until enough hole space found */
-	rec_t *last_re = ri.data + rb->size - rb->used;
-	int need = len - gap, holespace = 0;
+	/*rec_t **/ last_re = ri.data + rb->size - rb->used;
+	/*int*/ need = len - gap;
+	/*int*/ holespace = 0;
 	rec = last_re;
-	unsigned keylen;
+	/*unsigned keylen;*/
 
 	do {
 		keylen = rb->table[pos].len;
@@ -245,11 +235,11 @@ rec_t *rb_create(struct recinfo ri, const void *key, u8 len, u16 lowhash, const 
 			if (holespace >= need)
 				break;
 		} else if (pos == 0)
-			return errwrap(-EIO); // reusable hole not found due to corruption or bug
+			return (rec_t *)errwrap(-EIO); // reusable hole not found due to corruption or bug
 		rec = rec + reclen + rb->table[pos--].len;
 	} while (1);
 
-	unsigned use_entry = pos;
+	/*unsigned*/ use_entry = pos;
 	holespace -= keylen; // create new entry here using this header
 	need = len - keylen;
 	trace("==> create new entry at %u len %u keylen %u", pos, len, keylen);
@@ -351,7 +341,7 @@ create:
 int rb_delete(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 {
 	struct rb *rb = irb(ri);
-	rec_t *rec = ri.data + rb->size;
+	rec_t *rec = (rec_t *)(ri.data + rb->size);
 	unsigned reclen = ri.reclen;
 	unsigned hash = rb_hash(lowhash);
 
@@ -391,7 +381,7 @@ typedef void (rb_walk_fn)(void *context, u8 *key, unsigned len, u8 *data);
 int rb_walk(struct recinfo ri, rb_walk_fn fn, void *context)
 {
 	struct rb *rb = irb(ri);
-	rec_t *rec = ri.data + rb->size;
+	rec_t *rec = (rec_t *)(ri.data + rb->size);
 	unsigned reclen = ri.reclen;
 
 	for (unsigned i = 0; i < rb->count; i++) {
