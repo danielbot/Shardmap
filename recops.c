@@ -33,8 +33,15 @@ enum {header_size = sizeof(struct rb) };
 static inline struct rb *irb(struct recinfo ri)
 {
 	struct rb *rb = (struct rb *)ri.data;
-//	assert(!memcmp(rb->magic, "DE", 2));
+	//assert(!memcmp(rb->magic, "DE", 2));
 	//assert(ri.reclen == rb->reclen); // might add this field for redundancy
+	return rb;
+}
+
+static inline struct rb *irbrec(struct recinfo ri, rec_t **rec)
+{
+	struct rb *rb = irb(ri);
+	*rec = (rec_t *)(ri.data + rb->size);
 	return rb;
 }
 
@@ -68,12 +75,12 @@ int rb_more(struct recinfo ri)
 
 void rb_dump(struct recinfo ri)
 {
-	struct rb *rb = irb(ri);
+	rec_t *rec;
+	struct rb *rb = irbrec(ri, &rec);
 	unsigned reclen = ri.reclen;
 
 	if (1)
 		printf("%u entries: ", rb->count);
-	rec_t *rec = (rec_t *)(ri.data + rb->size);
 	char sep = 1 ? ' ' : '\n';
 	for (unsigned i = 0; i < rb->count; i++) {
 		unsigned len = rb->table[i].len;
@@ -92,8 +99,8 @@ void rb_dump(struct recinfo ri)
 /* Look up entry by index for testing, later use for seekdir */
 void *rb_key(struct recinfo ri, unsigned which, unsigned *ret) // untested!
 {
-	struct rb *rb = irb(ri);
-	rec_t *rec = (rec_t *)(ri.data + rb->size);
+	rec_t *rec;
+	struct rb *rb = irbrec(ri, &rec);
 	unsigned reclen = ri.reclen;
 	if (which >= rb->count) {
 		*ret = 0;
@@ -108,7 +115,8 @@ void *rb_key(struct recinfo ri, unsigned which, unsigned *ret) // untested!
 
 bool rb_check(struct recinfo ri)
 {
-	struct rb *rb = irb(ri);
+	rec_t *rec;
+	struct rb *rb = irbrec(ri, &rec);
 	unsigned reclen = ri.reclen;
 	unsigned scan_entry_count = 0, scan_hole_count = 0, scan_hole_space = 0, scan_entry_space = 0;
 	unsigned count = rb->count;
@@ -120,7 +128,6 @@ bool rb_check(struct recinfo ri)
 		count = max_entries;
 	}
 
-	rec_t *rec = (rec_t *)(ri.data + rb->size);
 	void *table_top = rb->table + count;
 
 	for (unsigned i = 0; i < count; i++) {
@@ -168,8 +175,8 @@ bool rb_check(struct recinfo ri)
 
 rec_t *rb_lookup(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 {
-	struct rb *rb = irb(ri);
-	rec_t *rec = (rec_t *)(ri.data + rb->size);
+	rec_t *rec;
+	struct rb *rb = irbrec(ri, &rec);
 	unsigned reclen = ri.reclen;
 	unsigned hash = rb_hash(lowhash);
 	assert(hash != holecode);
@@ -340,8 +347,8 @@ create:
 
 int rb_delete(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 {
-	struct rb *rb = irb(ri);
-	rec_t *rec = (rec_t *)(ri.data + rb->size);
+	rec_t *rec;
+	struct rb *rb = irbrec(ri, &rec);
 	unsigned reclen = ri.reclen;
 	unsigned hash = rb_hash(lowhash);
 
@@ -380,8 +387,8 @@ typedef void (rb_walk_fn)(void *context, u8 *key, unsigned len, u8 *data);
 
 int rb_walk(struct recinfo ri, rb_walk_fn fn, void *context)
 {
-	struct rb *rb = irb(ri);
-	rec_t *rec = (rec_t *)(ri.data + rb->size);
+	rec_t *rec;
+	struct rb *rb = irbrec(ri, &rec);
 	unsigned reclen = ri.reclen;
 
 	for (unsigned i = 0; i < rb->count; i++) {
