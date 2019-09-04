@@ -1476,13 +1476,13 @@ int test(int argc, const char *argv[])
 
 		struct context { int count, reclen; } context = { 0, sm.reclen };
 
-		auto actor = [](void *context_, u8 *name, unsigned namelen, u8 *data)
+		auto actor = [](void *context_, u8 *name, unsigned namelen, u8 *data, unsigned reclen)
 		{
 			struct context *context = (struct context *)context_;
 
 			if (verbose) {
 				printf("%.*s: ", namelen, name);
-				hexdump(data, std::min(context->reclen, 16));
+				hexdump(data, std::min(reclen, 16U));
 			}
 			context->count++;
 		};
@@ -1591,13 +1591,13 @@ int test(int argc, const char *argv[])
 
 		struct context { int count, reclen; } context = { 0, sm.reclen };
 
-		auto actor = [](void *context_, u8 *name, unsigned namelen, u8 *data)
+		auto actor = [](void *context_, u8 *name, unsigned namelen, u8 *data, unsigned reclen)
 		{
 			struct context *context = (struct context *)context_;
 
 			if (verbose) {
 				printf("%.*s: ", namelen, name);
-				hexdump(data, std::min(context->reclen, 16));
+				hexdump(data, std::min(reclen, 16U));
 			}
 			context->count++;
 		};

@@ -183,16 +183,25 @@ rec_t *rb_lookup(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 	for (unsigned i = 0; i < rb->count; i++) {
 		unsigned keylen = rb->table[i].len;
 		rec = rec - (reclen + keylen);
+		unsigned varlen = taglen ? rec[0] : 0;
 		trace("hash %x %x len %u", hash, rb->table[i].hash, len);
 		if (rb->table[i].hash == hash && keylen == len) {
-			if (!memcmp(key, rec + reclen, len))
-				return rec;
+			if (!memcmp(key, rec + reclen + varlen, keylen - varlen))
+				return rec + taglen;
 		}
 	}
 	return NULL;
 }
 
-rec_t *rb_create(struct recinfo ri, const void *newkey, u8 newlen, u16 lowhash, const void *data)
+rec_t *rb_varlookup(struct recinfo ri, const void *key, u8 len, u16 lowhash, u8 *varlen)
+{
+	rec_t *rec = rb_lookup(ri, key, len, lowhash);
+	if (rec)
+		*varlen = ((u8 *)rec)[-1];
+	return rec;
+}
+
+rec_t *rb_create(struct recinfo ri, const void *newkey, u8 newlen, u16 lowhash, const void *data, u8 varlen)
 {
 	struct rb *rb = irb(ri);
 	unsigned reclen = ri.reclen;
@@ -339,8 +348,10 @@ reuse:
 	rb->holes--;
 create:
 	rb->table[pos] = (struct tabent){rb_hash(lowhash), newlen};
-	memcpy(rec, data, ri.reclen);
-	memcpy(rec + reclen, newkey, newlen);
+	memcpy(rec + taglen, data, ri.reclen - taglen + varlen);
+	memcpy(rec + reclen + varlen, newkey, newlen - varlen);
+	if (taglen)
+		rec[0] = varlen;
 	return rec;
 }
 
@@ -354,8 +365,9 @@ int rb_delete(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 	for (unsigned i = 0; i < rb->count; i++) {
 		unsigned keylen = rb->table[i].len;
 		rec = rec - (reclen + keylen);
+		unsigned varlen = taglen ? rec[0] : 0;
 		if (rb->table[i].hash == hash && keylen == len) {
-			if (!memcmp(key, rec + reclen, len)) {
+			if (!memcmp(key, rec + reclen + varlen, keylen - varlen)) {
 				if (cleanup)
 					memset(rec + reclen, cleaned, keylen);
 				rb->table[i].hash = holecode;
@@ -382,8 +394,6 @@ int rb_delete(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 	return -ENOENT;
 }
 
-typedef void (rb_walk_fn)(void *context, u8 *key, unsigned len, u8 *data);
-
 int rb_walk(struct recinfo ri, rb_walk_fn fn, void *context)
 {
 	rec_t *rec;
@@ -393,8 +403,9 @@ int rb_walk(struct recinfo ri, rb_walk_fn fn, void *context)
 	for (unsigned i = 0; i < rb->count; i++) {
 		unsigned keylen = rb->table[i].len;
 		rec -= reclen + keylen;
+		unsigned varlen = taglen ? rec[0] : 0;
 		if (rb->table[i].hash != holecode)
-			fn(context, rec + reclen, keylen, rec);
+			fn(context, rec + reclen + varlen, keylen - varlen, rec + taglen, reclen - taglen + varlen);
 	}
 	return 0;
 }

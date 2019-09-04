@@ -29,7 +29,7 @@ typedef uint8_t u8;
 typedef u32 loc_t;
 
 #include "bigmap.c"
-#include "recops.h"
+#include "recops.c"
 
 void errno_exit(unsigned exitcode)
 {
@@ -100,7 +100,7 @@ int bigmap_create(struct bigmap *map, unsigned char *name, unsigned len, void *d
 	do {
 		struct recinfo ri = {map->path[0].map.data, map->blocksize, map->reclen};
 		trace("create '%.*s' len %u", len, name, len);
-		rec_t *rec = rb_create(ri, name, len, 0x66, data); // use actual hash!
+		rec_t *rec = rb_create(ri, name, len, 0x66, data, 0); // use actual hash!
 		if (!is_errcode(rec)) {
 			assert(!rb_check(ri));
 			if (0)
@@ -117,7 +117,7 @@ int bigmap_delete(struct bigmap *map, void *name, unsigned len)
 	unsigned loc = map->path[0].map.loc;
 	trace("--- loc %u", loc);
 	struct rb *rb = (void *)map->path[0].map.data;
-	struct recinfo ri = {rb, map->blocksize, map->reclen};
+	struct recinfo ri = {(u8 *)rb, map->blocksize, map->reclen};
 	if (0)
 		rb_dump(ri);
 	int err = rb_delete(ri, name, len, 0x66);

@@ -21,8 +21,6 @@ typedef u32 loc_t;
 
 #include "bigmap.h"
 
-struct recinfo { void *data; unsigned size, recsize; }; // defined in multiple places!
-
 #if 0
 // this will replace ext_bigmap_map after initial integration kvs is done
 // it seems, datamap loc is never needed by code, only in mapping fns

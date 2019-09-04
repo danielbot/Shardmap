@@ -36,7 +36,7 @@ struct Rb : recinfo
 
 	virtual rec_t *create(const void *key, u8 len, u16 lowhash, const void *data)
 	{
-		return rb_create(*this, key, len, lowhash, data);
+		return rb_create(*this, key, len, lowhash, data, 0);
 	}
 
 	virtual rec_t *lookup(const void *key, u8 len, u16 lowhash)
