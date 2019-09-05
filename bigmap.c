@@ -1,3 +1,9 @@
+/*
+ * Shardmap fast lightweight key value store
+ * (c) 2012 - 2019, Daniel Phillips
+ * License: GPL v3
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>

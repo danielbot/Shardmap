@@ -2,10 +2,6 @@
  * Record block primitives for Shardmap
  * Copyright (c) Daniel Phillips, 2016-2019
  * License: GPL v3
- *
- * gcc -c -Wall shardlib.c
- * g++ -Wall shardmap.cc shardlib.o && ./a.out
- *
  */
 
 #include "recops.h"
