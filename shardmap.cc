@@ -556,6 +556,19 @@ struct bh keymap::sinkinfo()
 	return (struct bh){path[0].map.data, blocksize, reclen};
 }
 
+struct bh keymap::peekinfo(loc_t loc)
+{
+	return {
+		.data =
+			({
+				peek = (struct datamap){.data = ext_bigmap_mem(this, loc), .loc = loc};
+				peek.data;
+			}),
+		.size = blocksize,
+		.reclen = reclen
+	};
+}
+
 void keymap::spam(struct shard *shard)
 {
 	spam(shard, shard->ix, tiershift(tier(shard)));
@@ -940,15 +953,7 @@ rec_t *shard::lookup(const void *name, unsigned len, hashkey_t key)
 				loc_t loc = trio.second(entry);
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
-//				struct bh *rb = map->map(loc);
-				struct bh ri{
-					.data = (loc == map->path[0].map.loc ? map->path[0].map.data :
-						({
-							map->peek = (struct datamap){.data = ext_bigmap_mem(map, loc), .loc = loc};
-							map->peek.data;
-						})),
-					.size = map->blocksize,
-					.reclen = map->reclen};
+				struct bh ri = loc == map->path[0].map.loc ? map->sinkinfo() : map->peekinfo(loc);
 				rec_t *rec = ri.lookup(name, len, key);
 				if (rec)
 					return rec;
@@ -1319,14 +1324,7 @@ int shard::remove(const void *name, unsigned len, hashkey_t key)
 				trace("probe block %x", loc);
 				probes++;
 //				struct bh *rb = map->map(loc);
-				struct bh ri{
-					.data = (loc == map->path[0].map.loc ? map->path[0].map.data :
-						({
-							map->peek = (struct datamap){.data = ext_bigmap_mem(map, loc), .loc = loc};
-							map->peek.data;
-						})),
-					.size = map->blocksize,
-					.reclen = map->reclen};
+				struct bh ri = loc == map->path[0].map.loc ? map->sinkinfo() : map->peekinfo(loc);
 				int err = ri.remove(name, len, key);
 				if (!err) {
 					trace("delete %i/%i, big = %i", loc, len, ri.big());
