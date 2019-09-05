@@ -558,7 +558,8 @@ struct bh keymap::sinkinfo()
 
 struct bh keymap::peekinfo(loc_t loc)
 {
-	return {
+	return loc == path[0].map.loc ? sinkinfo() :
+	(struct bh){
 		.data =
 			({
 				peek = (struct datamap){.data = ext_bigmap_mem(this, loc), .loc = loc};
@@ -953,7 +954,7 @@ rec_t *shard::lookup(const void *name, unsigned len, hashkey_t key)
 				loc_t loc = trio.second(entry);
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
-				struct bh ri = loc == map->path[0].map.loc ? map->sinkinfo() : map->peekinfo(loc);
+				struct bh ri = map->peekinfo(loc);
 				rec_t *rec = ri.lookup(name, len, key);
 				if (rec)
 					return rec;
@@ -1323,8 +1324,7 @@ int shard::remove(const void *name, unsigned len, hashkey_t key)
 				loc = trio.second(entry);
 				trace("probe block %x", loc);
 				probes++;
-//				struct bh *rb = map->map(loc);
-				struct bh ri = loc == map->path[0].map.loc ? map->sinkinfo() : map->peekinfo(loc);
+				struct bh ri = map->peekinfo(loc);
 				int err = ri.remove(name, len, key);
 				if (!err) {
 					trace("delete %i/%i, big = %i", loc, len, ri.big());
@@ -1492,14 +1492,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct bh ri{
-					.data = (loc == sm.path[0].map.loc ? sm.path[0].map.data :
-						({
-							sm.peek = (struct datamap){.data = ext_bigmap_mem(&sm, loc), .loc = loc};
-							sm.peek.data;
-						})),
-					.size = sm.blocksize,
-					.reclen = sm.reclen};
+				struct bh ri = sm.peekinfo(loc);
 				ri.walk(actor, &context);
 			}
 		}
@@ -1607,14 +1600,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct bh ri{
-					.data = (loc == sm.path[0].map.loc ? sm.path[0].map.data :
-						({
-							sm.peek = (struct datamap){.data = ext_bigmap_mem(&sm, loc), .loc = loc};
-							sm.peek.data;
-						})),
-					.size = sm.blocksize,
-					.reclen = sm.reclen};
+				struct bh ri = loc == sm.path[0].map.loc ? sm.sinkinfo() : sm.peekinfo(loc);
 				ri.walk(actor, &context);
 			}
 		}
