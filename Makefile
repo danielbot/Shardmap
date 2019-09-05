@@ -17,7 +17,7 @@ shardmap: Makefile debug.h shardmap.h main.cc shardmap.so
 shardmap.so: Makefile $(obj)
 	g++ -shared $(obj) -o shardmap.so
 
-shardmap.o: Makefile debug.h recops.h recops.c recops.hh recops.cc shardmap.h shardmap.cc
+shardmap.o: Makefile debug.h recops.h recops.c recops.cc shardmap.h shardmap.cc
 	g++ -c $(opt) -Wall -Wno-unused-function -Wno-narrowing -std=c++17 shardmap.cc -oshardmap.o
 
 bigmap.o: Makefile debug.h bigmap.c bigmap.h
