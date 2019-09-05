@@ -551,6 +551,11 @@ keymap::~keymap()
 	free(map);
 }
 
+struct bh keymap::sinkinfo()
+{
+	return (struct bh){path[0].map.data, blocksize, reclen};
+}
+
 void keymap::spam(struct shard *shard)
 {
 	spam(shard, shard->ix, tiershift(tier(shard)));
@@ -1049,18 +1054,13 @@ u8 *ext_bigmap_mem(struct bigmap *map, loc_t loc)
 	return map->rbspace + power2(map->blockbits, loc);
 }
 
-struct bh sinkinfo(struct bigmap *map)
-{
-	return (struct bh){map->path[0].map.data, map->blocksize, map->reclen};
-}
-
 void ext_bigmap_map(struct bigmap *map, unsigned level, loc_t loc)
 {
 	if (loc == map->blocks) {
 		if (map->blocks >= map->maxblocks)
 			error_exit(1, "too many blocks (%u)", map->blocks + 1);
 		if (!level)
-			sinkinfo(map).init();
+			((keymap *)map)->sinkinfo().init();
 		map->blocks++;
 	}
 	map->path[level].map.loc = loc;
@@ -1242,7 +1242,7 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 	}
 
 	while (1) {
-		struct bh ri = sinkinfo(this);
+		struct bh ri = sinkinfo();
 		if (verify)
 			assert(!ri.check());
 

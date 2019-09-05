@@ -183,6 +183,7 @@ struct keymap : bigmap
 	struct shard **mapalloc();
 	~keymap();
 
+	struct bh sinkinfo();
 	void spam(struct shard *shard);
 	void spam(struct shard *shard_or_null, unsigned ix, unsigned shift);
 	void dump(unsigned flags = 1);
