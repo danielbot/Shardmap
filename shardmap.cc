@@ -935,8 +935,8 @@ rec_t *shard::lookup(const void *name, unsigned len, hashkey_t key)
 				loc_t loc = trio.second(entry);
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
-//				struct Rb *rb = map->map(loc);
-				struct Rb ri{
+//				struct bh *rb = map->map(loc);
+				struct bh ri{
 					.data = (loc == map->path[0].map.loc ? map->path[0].map.data :
 						({
 							map->peek = (struct datamap){.data = ext_bigmap_mem(map, loc), .loc = loc};
@@ -1049,9 +1049,9 @@ u8 *ext_bigmap_mem(struct bigmap *map, loc_t loc)
 	return map->rbspace + power2(map->blockbits, loc);
 }
 
-struct Rb sinkinfo(struct bigmap *map)
+struct bh sinkinfo(struct bigmap *map)
 {
-	return (struct Rb){map->path[0].map.data, map->blocksize, map->reclen};
+	return (struct bh){map->path[0].map.data, map->blocksize, map->reclen};
 }
 
 void ext_bigmap_map(struct bigmap *map, unsigned level, loc_t loc)
@@ -1074,7 +1074,7 @@ void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm)
 
 unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm)
 {
-	return (struct Rb){dm->data, map->blocksize, map->reclen}.big();
+	return (struct bh){dm->data, map->blocksize, map->reclen}.big();
 }
 
 /* High level db ops */
@@ -1242,7 +1242,7 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 	}
 
 	while (1) {
-		struct Rb ri = sinkinfo(this);
+		struct bh ri = sinkinfo(this);
 		if (verify)
 			assert(!ri.check());
 
@@ -1318,8 +1318,8 @@ int shard::remove(const void *name, unsigned len, hashkey_t key)
 				loc = trio.second(entry);
 				trace("probe block %x", loc);
 				probes++;
-//				struct Rb *rb = map->map(loc);
-				struct Rb ri{
+//				struct bh *rb = map->map(loc);
+				struct bh ri{
 					.data = (loc == map->path[0].map.loc ? map->path[0].map.data :
 						({
 							map->peek = (struct datamap){.data = ext_bigmap_mem(map, loc), .loc = loc};
@@ -1494,7 +1494,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct Rb ri{
+				struct bh ri{
 					.data = (loc == sm.path[0].map.loc ? sm.path[0].map.data :
 						({
 							sm.peek = (struct datamap){.data = ext_bigmap_mem(&sm, loc), .loc = loc};
@@ -1609,7 +1609,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct Rb ri{
+				struct bh ri{
 					.data = (loc == sm.path[0].map.loc ? sm.path[0].map.data :
 						({
 							sm.peek = (struct datamap){.data = ext_bigmap_mem(&sm, loc), .loc = loc};
