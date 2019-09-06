@@ -24,7 +24,7 @@ struct rb
 };
 
 enum {tabent_size = sizeof(struct tabent), header_size = sizeof(struct rb) };
-enum {taglen = 0 }; // optional one byte variable data length borrowed from key
+enum {taglen = VARTAG}; // optional one byte variable data length borrowed from key
 
 static inline struct rb *irb(struct recinfo ri)
 {

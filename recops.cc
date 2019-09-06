@@ -1,4 +1,16 @@
+namespace recops {
+#define VARTAG 0
 #include "recops.c"
+#undef VARTAG
+}
+
+namespace varops {
+#define VARTAG 1
+#include "recops.c"
+#undef VARTAG
+}
+
+using namespace recops;
 
 struct bh : recinfo
 {
