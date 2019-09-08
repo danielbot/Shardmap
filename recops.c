@@ -26,18 +26,18 @@ struct rb
 enum {tabent_size = sizeof(struct tabent), header_size = sizeof(struct rb) };
 enum {taglen = VARTAG}; // optional one byte variable data length borrowed from key
 
-static inline struct rb *irb(struct recinfo ri)
+static inline struct rb *irb(struct recinfo *ri)
 {
-	struct rb *rb = (struct rb *)ri.data;
+	struct rb *rb = (struct rb *)ri->data;
 	assert(!memcmp(rb->magic, "RB", 2));
-	//assert(ri.reclen == rb->reclen); // might add this field for redundancy
+	//assert(ri->reclen == rb->reclen); // might add this field for redundancy
 	return rb;
 }
 
-static inline struct rb *irbrec(struct recinfo ri, rec_t **rec)
+static inline struct rb *irbrec(struct recinfo *ri, rec_t **rec)
 {
 	struct rb *rb = irb(ri);
-	*rec = (rec_t *)(ri.data + rb->size);
+	*rec = (rec_t *)(ri->data + rb->size);
 	return rb;
 }
 
@@ -48,34 +48,34 @@ static unsigned rb_gap(struct rb *rb)
 
 /* Exports */
 
-void rb_init(struct recinfo ri)
+void rb_init(struct recinfo *ri)
 {
-	struct rb *rb = (struct rb *)ri.data; // avoid assert by not using irb
-	*rb = {.size = ri.size};
+	struct rb *rb = (struct rb *)ri->data; // avoid assert by not using irb
+	*rb = {.size = ri->size};
 	memcpy(rb->magic, "RB", 2); // because c++ char array init is braindamaged
 }
 
-int rb_big(struct recinfo ri)
+int rb_big(struct recinfo *ri)
 {
 	struct rb *rb = irb(ri);
-	unsigned reclen = ri.reclen;
+	unsigned reclen = ri->reclen;
 	unsigned overhead = reclen + tabent_size;
 	unsigned gap = rb_gap(rb);
 	unsigned big = rb->holes ? gap + rb->free : (gap > overhead ? gap - overhead : 0);
 	return big > maxname ? maxname : big;
 }
 
-int rb_more(struct recinfo ri)
+int rb_more(struct recinfo *ri)
 {
 	struct rb *rb = irb(ri);
 	return rb_gap(rb) + rb->free;
 }
 
-void rb_dump(struct recinfo ri)
+void rb_dump(struct recinfo *ri)
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(ri, &rec);
-	unsigned reclen = ri.reclen;
+	unsigned reclen = ri->reclen;
 
 	if (1)
 		printf("%u entries: ", rb->count);
@@ -88,18 +88,18 @@ void rb_dump(struct recinfo ri)
 		if (rb->table[i].hash == holecode)
 			printf("(%u)%c", keylen, sep);
 		else
-//			printf("%.*s:%u%c", keylen, rec + ri.reclen, *(u32 *)rec, sep);
+//			printf("%.*s:%u%c", keylen, rec + ri->reclen, *(u32 *)rec, sep);
 			printf("%x.%u:%u%c", rb->table[i].hash, keylen, *(u32 *)rec, sep);
 	}
 	printf("gap %i free %i holes %i\n", rb_gap(rb), rb->free, rb->holes);
 }
 
 /* Look up entry by index for testing, later use for seekdir */
-void *rb_key(struct recinfo ri, unsigned which, unsigned *ret) // untested!
+void *rb_key(struct recinfo *ri, unsigned which, unsigned *ret) // untested!
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(ri, &rec);
-	unsigned reclen = ri.reclen;
+	unsigned reclen = ri->reclen;
 	if (which >= rb->count) {
 		*ret = 0;
 		return NULL;
@@ -110,11 +110,11 @@ void *rb_key(struct recinfo ri, unsigned which, unsigned *ret) // untested!
 	return rb->table[which].hash == holecode ? NULL : (rec + reclen);
 }
 
-bool rb_check(struct recinfo ri)
+bool rb_check(struct recinfo *ri)
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(ri, &rec);
-	unsigned reclen = ri.reclen;
+	unsigned reclen = ri->reclen;
 	unsigned scan_entry_count = 0, scan_hole_count = 0, scan_hole_space = 0, scan_entry_space = 0;
 	unsigned count = rb->count;
 	unsigned max_entries = (rb->size - header_size) / (reclen + tabent_size + 1);
@@ -170,11 +170,11 @@ bool rb_check(struct recinfo ri)
 	return errs;
 }
 
-rec_t *rb_lookup(struct recinfo ri, const void *key, u8 len, u16 lowhash)
+rec_t *rb_lookup(struct recinfo *ri, const void *key, u8 len, u16 lowhash)
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(ri, &rec);
-	unsigned reclen = ri.reclen;
+	unsigned reclen = ri->reclen;
 	unsigned hash = rb_hash(lowhash);
 	assert(hash != holecode);
 
@@ -191,7 +191,7 @@ rec_t *rb_lookup(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 	return NULL;
 }
 
-rec_t *rb_varlookup(struct recinfo ri, const void *key, u8 len, u16 lowhash, u8 *varlen)
+rec_t *rb_varlookup(struct recinfo *ri, const void *key, u8 len, u16 lowhash, u8 *varlen)
 {
 	rec_t *rec = rb_lookup(ri, key, len, lowhash);
 	if (rec)
@@ -199,10 +199,10 @@ rec_t *rb_varlookup(struct recinfo ri, const void *key, u8 len, u16 lowhash, u8 
 	return rec;
 }
 
-rec_t *rb_create(struct recinfo ri, const void *newkey, u8 newlen, u16 lowhash, const void *data, u8 varlen)
+rec_t *rb_create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash, const void *data, u8 varlen)
 {
 	struct rb *rb = irb(ri);
-	unsigned reclen = ri.reclen;
+	unsigned reclen = ri->reclen;
 	unsigned gap = rb_gap(rb), last = rb->count - 1, pos = last;
 	rec_t *rec;
 	trace("hash %x gap %u free %u", rb_hash(lowhash), gap, rb->free);
@@ -215,7 +215,7 @@ rec_t *rb_create(struct recinfo ri, const void *newkey, u8 newlen, u16 lowhash, 
 	if (gap >= reclen + newlen + tabent_size) {
 		trace("fast path create");
 		rb->used += reclen + newlen;
-		rec = ri.data + rb->size - rb->used;
+		rec = ri->data + rb->size - rb->used;
 		pos = rb->count++;
 		goto create;
 	}
@@ -233,7 +233,7 @@ rec_t *rb_create(struct recinfo ri, const void *newkey, u8 newlen, u16 lowhash, 
 		return (rec_t *)errwrap(-ENOSPC);
 
 	/* walk backward in dict until enough hole space found */
-	/*rec_t **/ last_re = ri.data + rb->size - rb->used;
+	/*rec_t **/ last_re = ri->data + rb->size - rb->used;
 	/*int*/ need = newlen - gap;
 	/*int*/ holespace = 0;
 	rec = last_re;
@@ -328,7 +328,7 @@ rec_t *rb_create(struct recinfo ri, const void *newkey, u8 newlen, u16 lowhash, 
 
 		if (pos == last) {
 			if (cleanup)
-				memset(ri.data + rb->size - rb->used, 0, moveup);
+				memset(ri->data + rb->size - rb->used, 0, moveup);
 			rb->used -= moveup; /* increase gap */
 		}
 
@@ -346,18 +346,18 @@ reuse:
 	rb->holes--;
 create:
 	rb->table[pos] = (struct tabent){rb_hash(lowhash), newlen};
-	memcpy(rec + taglen, data, ri.reclen - taglen + varlen);
+	memcpy(rec + taglen, data, ri->reclen - taglen + varlen);
 	memcpy(rec + reclen + varlen, newkey, newlen - varlen);
 	if (taglen)
 		rec[0] = varlen;
 	return rec;
 }
 
-int rb_delete(struct recinfo ri, const void *key, u8 len, u16 lowhash)
+int rb_delete(struct recinfo *ri, const void *key, u8 len, u16 lowhash)
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(ri, &rec);
-	unsigned reclen = ri.reclen;
+	unsigned reclen = ri->reclen;
 	unsigned hash = rb_hash(lowhash);
 
 	for (unsigned i = 0; i < rb->count; i++) {
@@ -392,11 +392,11 @@ int rb_delete(struct recinfo ri, const void *key, u8 len, u16 lowhash)
 	return -ENOENT;
 }
 
-int rb_walk(struct recinfo ri, rb_walk_fn fn, void *context)
+int rb_walk(struct recinfo *ri, rb_walk_fn fn, void *context)
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(ri, &rec);
-	unsigned reclen = ri.reclen;
+	unsigned reclen = ri->reclen;
 
 	for (unsigned i = 0; i < rb->count; i++) {
 		unsigned keylen = rb->table[i].len;
