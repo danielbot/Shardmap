@@ -1,9 +1,11 @@
 .PHONY: all clean
 
-opt=-O3 -fPIC -Wno-sign-compare
+optbase=-fPIC -Wno-sign-compare
+
+opt=-O3 $(optbase)
 
 ifdef DEBUG
-opt=-g -O0 -fPIC
+opt=-g -O0 $(optbase)
 endif
 
 obj = utility.o pmem.o bigmap.o options.o shardmap.o
