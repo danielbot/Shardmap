@@ -1,5 +1,3 @@
-typedef u32 loc_t;
-
 enum {bigmap_maxlevels = 10};
 
 struct datamap
