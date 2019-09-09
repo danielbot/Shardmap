@@ -4,9 +4,7 @@
 
 struct bh : recinfo
 {
-	loc_t loc;
-	bh(void *data, unsigned size, unsigned reclen) : recinfo{(u8 *)data, size, reclen}, loc{-1} {}
-//	bh(const bh &bh); // copy constructor
+	bh(void *data, unsigned size, unsigned reclen) : recinfo{(u8 *)data, size, reclen} {}
 	#include "recops.inc"
 };
 

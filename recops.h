@@ -3,7 +3,7 @@ enum {maxname = 255};
 typedef u8 rec_t;
 typedef void (rb_walk_fn)(void *context, u8 *key, unsigned keylen, u8 *data, unsigned reclen);
 
-struct recinfo { u8 *data; unsigned size, reclen; };
+struct recinfo { u8 *data; const unsigned size, reclen; loc_t loc = -1; };
 
 int rb_walk(struct recinfo *ri, rb_walk_fn fn, void *context);
 int rb_big(struct recinfo *ri);

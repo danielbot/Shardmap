@@ -555,28 +555,18 @@ keymap::~keymap()
 	free(map);
 }
 
-struct bh keymap::sinkinfo()
+struct bh &keymap::sinkinfo()
 {
-	sinkbh.data = path[0].map.data;
-	return (struct bh){path[0].map.data, blocksize, reclen};
+	sinkbh.data = path[0].map.data; // would like to get rid of this assignment
+	return sinkbh; // maybe by using struct bh directly in path[] and losing datamap
 }
 
-struct bh keymap::peekinfo(loc_t loc)
+struct bh &keymap::peekinfo(loc_t loc)
 {
-	if (loc == path[0].map.loc) {
-		sinkinfo();
-		return sinkbh;
-	}
-
-	return (struct bh){
-		.data =
-			({
-				peek = (struct datamap){.data = ext_bigmap_mem(this, loc), .loc = loc};
-				peek.data;
-			}),
-		.size = blocksize,
-		.reclen = reclen
-	};
+	if (loc == path[0].map.loc)
+		return sinkinfo();
+	peek = (struct datamap){.data = peekbh.data = ext_bigmap_mem(this, loc), .loc = loc};
+	return peekbh;
 }
 
 void keymap::spam(struct shard *shard)
@@ -1257,8 +1247,7 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 	}
 
 	while (1) {
-		sinkinfo();
-		struct bh &ri = sinkbh;
+		struct bh &ri = sinkinfo();
 		if (verify)
 			assert(!ri.check());
 

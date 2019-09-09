@@ -47,7 +47,7 @@ int main(int argc, const char *argv[])
 	}
 
 	if (1)
-		printf("sizeof(shardmap %lu tier %lu shard %lu)\n", sizeof(keymap), sizeof(tier), sizeof(shard));
+		printf("sizeof(shardmap %lu tier %lu shard %lu bh %lu)\n", sizeof(keymap), sizeof(tier), sizeof(shard), sizeof(bh));
 
 	if (argc > 1 && !strcmp("tpcb", argv[1])) {
 		struct option options[] = {
