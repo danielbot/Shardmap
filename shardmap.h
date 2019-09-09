@@ -152,6 +152,8 @@ struct keymap : bigmap
 	float loadfactor; // working as intended but obscure in places
 	struct datamap peek; // for lookups
 	struct header &header;
+	struct bh sinkbh;
+	struct bh peekbh;
 //	struct datamap header; // sm header including map geometry
 	int fd;
 	unsigned id;
@@ -179,6 +181,7 @@ struct keymap : bigmap
 	enum {reclen_default = 100};
 
 	keymap(struct header &header, const int fd, unsigned reclen = reclen_default);
+
 	struct shard *new_shard(const struct tier *tier, unsigned i, unsigned tablebits, bool virgin = 1);
 	struct shard **mapalloc();
 	~keymap();

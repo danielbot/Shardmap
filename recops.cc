@@ -2,16 +2,12 @@
 #include "recops.c"
 #undef VARTAG
 
-struct bhbase : recinfo
+struct bh : recinfo
 {
 	loc_t loc;
-	bhbase(void *data, unsigned size, unsigned reclen) : recinfo{(u8 *)data, size, reclen}, loc{-1} {}
+	bh(void *data, unsigned size, unsigned reclen) : recinfo{(u8 *)data, size, reclen}, loc{-1} {}
+//	bh(const bh &bh); // copy constructor
 	#include "recops.inc"
-};
-
-struct bh : bhbase
-{
-	bh(void *data, unsigned size, unsigned reclen) : bhbase{data, size, reclen} {}
 };
 
 namespace varops {
@@ -19,9 +15,9 @@ namespace varops {
 	#include "recops.c"
 	#undef VARTAG
 
-	struct bh : bhbase
+	struct vh : bh
 	{
-		bh(void *data, unsigned size, unsigned reclen) : bhbase{data, size, reclen} {}
+		vh(void *data, unsigned size, unsigned reclen) : bh{data, size, reclen} {}
 		#include "recops.inc"
 	};
 }

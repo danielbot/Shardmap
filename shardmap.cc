@@ -491,7 +491,11 @@ keymap::keymap(struct header &header, const int fd, unsigned reclen) :
 	tablebits(header.tablebits),
 	shards(power2(upper->mapbits)), pending(0),
 	loadfactor(header.loadfactor),
-	peek({NULL, -1}), header(header), fd(fd), id(mapid++)
+	peek({NULL, -1}),
+	header(header),
+	sinkbh((/*varops::vh*/bh){NULL, power2(header.blockbits), reclen}),
+	peekbh((/*varops::vh*/bh){NULL, power2(header.blockbits), reclen}),
+	fd(fd), id(mapid++)
 {
 	printf("upper mapbits %u stridebits %u locbits %u sigbits %u\n",
 		upper->mapbits, upper->stridebits, upper->locbits, upper->sigbits);
@@ -553,13 +557,18 @@ keymap::~keymap()
 
 struct bh keymap::sinkinfo()
 {
+	sinkbh.data = path[0].map.data;
 	return (struct bh){path[0].map.data, blocksize, reclen};
 }
 
 struct bh keymap::peekinfo(loc_t loc)
 {
-	return loc == path[0].map.loc ? sinkinfo() :
-	(struct bh){
+	if (loc == path[0].map.loc) {
+		sinkinfo();
+		return sinkbh;
+	}
+
+	return (struct bh){
 		.data =
 			({
 				peek = (struct datamap){.data = ext_bigmap_mem(this, loc), .loc = loc};
@@ -1248,7 +1257,8 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 	}
 
 	while (1) {
-		struct bh ri = sinkinfo();
+		sinkinfo();
+		struct bh &ri = sinkbh;
 		if (verify)
 			assert(!ri.check());
 

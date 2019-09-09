@@ -5,13 +5,17 @@
  */
 
 extern "C" {
+#include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
+#include <errno.h>
 #include "size.h"
 #include "debug.h"
-#include "recops.h"
 }
 
+#define trace trace_off
+
+#include "recops.cc"
 #include "shardmap.h"
 
 #include <type_traits> // is_pod
@@ -20,8 +24,6 @@ extern "C" {
 #include "options.h"
 int uform(char *buf, int len, unsigned long n, unsigned base);
 }
-
-#define trace trace_off
 
 void usage(struct option *options, const char *name, const char *blurb)
 {
