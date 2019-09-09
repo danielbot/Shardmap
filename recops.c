@@ -51,7 +51,7 @@ static unsigned rb_gap(struct rb *rb)
 void rb_init(struct recinfo *ri)
 {
 	struct rb *rb = (struct rb *)ri->data; // avoid assert by not using irb
-	*rb = {.size = ri->size};
+	*rb = {.size = ri->blocksize};
 	memcpy(rb->magic, "RB", 2); // because c++ char array init is braindamaged
 }
 
