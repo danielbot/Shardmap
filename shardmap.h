@@ -152,8 +152,8 @@ struct keymap : bigmap
 	float loadfactor; // working as intended but obscure in places
 	struct datamap peek; // for lookups
 	struct header &header;
-	struct bh sinkbh;
-	struct bh peekbh;
+	struct ri sinkbh;
+	struct ri peekbh;
 //	struct datamap header; // sm header including map geometry
 	int fd;
 	unsigned id;
@@ -186,8 +186,8 @@ struct keymap : bigmap
 	struct shard **mapalloc();
 	~keymap();
 
-	struct bh &sinkinfo();
-	struct bh &peekinfo(loc_t loc);
+	struct ri &sinkinfo();
+	struct ri &peekinfo(loc_t loc);
 	void spam(struct shard *shard);
 	void spam(struct shard *shard_or_null, unsigned ix, unsigned shift);
 	void dump(unsigned flags = 1);

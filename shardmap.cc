@@ -493,8 +493,8 @@ keymap::keymap(struct header &header, const int fd, unsigned reclen) :
 	loadfactor(header.loadfactor),
 	peek({NULL, -1}),
 	header(header),
-	sinkbh((/*varops::vh*/bh){NULL, power2(header.blockbits), reclen}),
-	peekbh((/*varops::vh*/bh){NULL, power2(header.blockbits), reclen}),
+	sinkbh((struct /*varops::vh*/ri){NULL, power2(header.blockbits), reclen}),
+	peekbh((struct /*varops::vh*/ri){NULL, power2(header.blockbits), reclen}),
 	fd(fd), id(mapid++)
 {
 	printf("upper mapbits %u stridebits %u locbits %u sigbits %u\n",
@@ -555,13 +555,13 @@ keymap::~keymap()
 	free(map);
 }
 
-struct bh &keymap::sinkinfo()
+struct ri &keymap::sinkinfo()
 {
 	sinkbh.data = path[0].map.data; // would like to get rid of this assignment
-	return sinkbh; // maybe by using struct bh directly in path[] and losing datamap
+	return sinkbh; // maybe by using struct ri directly in path[] and losing datamap
 }
 
-struct bh &keymap::peekinfo(loc_t loc)
+struct ri &keymap::peekinfo(loc_t loc)
 {
 	if (loc == path[0].map.loc)
 		return sinkinfo();
@@ -953,7 +953,7 @@ rec_t *shard::lookup(const void *name, unsigned len, hashkey_t key)
 				loc_t loc = trio.second(entry);
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
-				struct bh ri = map->peekinfo(loc);
+				struct ri ri = map->peekinfo(loc);
 				rec_t *rec = ri.lookup(name, len, key);
 				if (rec)
 					return rec;
@@ -1079,7 +1079,7 @@ void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm)
 
 unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm)
 {
-	return (struct bh){dm->data, map->blocksize, map->reclen}.big();
+	return (struct ri){dm->data, map->blocksize, map->reclen}.big();
 }
 
 /* High level db ops */
@@ -1247,7 +1247,7 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 	}
 
 	while (1) {
-		struct bh &ri = sinkinfo();
+		struct ri &ri = sinkinfo();
 		if (verify)
 			assert(!ri.check());
 
@@ -1323,7 +1323,7 @@ int shard::remove(const void *name, unsigned len, hashkey_t key)
 				loc = trio.second(entry);
 				trace("probe block %x", loc);
 				probes++;
-				struct bh ri = map->peekinfo(loc);
+				struct ri ri = map->peekinfo(loc);
 				int err = ri.remove(name, len, key);
 				if (!err) {
 					trace("delete %i/%i, big = %i", loc, len, ri.big());
@@ -1491,7 +1491,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct bh ri = sm.peekinfo(loc);
+				struct ri ri = sm.peekinfo(loc);
 				ri.walk(actor, &context);
 			}
 		}
@@ -1599,7 +1599,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct bh ri = loc == sm.path[0].map.loc ? sm.sinkinfo() : sm.peekinfo(loc);
+				struct ri ri = loc == sm.path[0].map.loc ? sm.sinkinfo() : sm.peekinfo(loc);
 				ri.walk(actor, &context);
 			}
 		}

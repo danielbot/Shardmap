@@ -2,9 +2,9 @@
 #include "recops.c"
 #undef VARTAG
 
-struct bh : recinfo
+struct ri : recinfo
 {
-	bh(void *data, unsigned size, unsigned reclen) : recinfo{(u8 *)data, size, reclen} {}
+	ri(void *data, unsigned size, unsigned reclen) : recinfo{(u8 *)data, size, reclen} {}
 	#include "recops.inc"
 };
 
@@ -13,9 +13,9 @@ namespace varops {
 	#include "recops.c"
 	#undef VARTAG
 
-	struct vh : bh
+	struct vri : ri
 	{
-		vh(void *data, unsigned size, unsigned reclen) : bh{data, size, reclen} {}
+		vri(void *data, unsigned size, unsigned reclen) : ri{data, size, reclen} {}
 		#include "recops.inc"
 	};
 }
