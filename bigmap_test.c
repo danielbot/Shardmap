@@ -28,6 +28,8 @@ typedef uint16_t u16;
 typedef uint8_t u8;
 typedef u32 loc_t;
 
+enum {taglen = 0}; // optional one byte variable data length borrowed from key
+
 #include "bigmap.c"
 #include "recops.c"
 
@@ -70,7 +72,7 @@ void ext_bigmap_map(struct bigmap *map, unsigned level, loc_t loc)
 		if (map->blocks >= map->maxblocks)
 			error_exit(1, "too many blocks (%u)", map->blocks + 1);
 		if (!level) {
-			rb_init((struct recinfo){map->path[0].map.data, map->blocksize, map->reclen});
+			rb_init(&(struct recinfo){map->blocksize, map->reclen, map->path[0].map.data});
 		}
 		map->blocks++;
 	}
@@ -84,21 +86,21 @@ void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm)
 
 unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm)
 {
-	return rb_big((struct recinfo){dm->data, map->blocksize, map->reclen});
+	return rb_big(&(struct recinfo){map->blocksize, map->reclen, dm->data});
 }
 
 static unsigned bebug = 0;
 
 unsigned ext_big(struct bigmap *map, struct datamap *dm)
 {
-	return rb_big((struct recinfo){dm->data, map->blocksize, map->reclen});
+	return rb_big(&(struct recinfo){map->blocksize, map->reclen, dm->data});
 }
 
 int bigmap_create(struct bigmap *map, unsigned char *name, unsigned len, void *data)
 {
 	bebug++;
 	do {
-		struct recinfo ri = {map->path[0].map.data, map->blocksize, map->reclen};
+		struct recinfo *ri = &(struct recinfo){map->blocksize, map->reclen, map->path[0].map.data};
 		trace("create '%.*s' len %u", len, name, len);
 		rec_t *rec = rb_create(ri, name, len, 0x66, data, 0); // use actual hash!
 		if (!is_errcode(rec)) {
@@ -117,15 +119,15 @@ int bigmap_delete(struct bigmap *map, void *name, unsigned len)
 	unsigned loc = map->path[0].map.loc;
 	trace("--- loc %u", loc);
 	struct rb *rb = (void *)map->path[0].map.data;
-	struct recinfo ri = {(u8 *)rb, map->blocksize, map->reclen};
+	struct recinfo ri = {map->blocksize, map->reclen, (u8 *)rb};
 	if (0)
-		rb_dump(ri);
-	int err = rb_delete(ri, name, len, 0x66);
+		rb_dump(&ri);
+	int err = rb_delete(&ri, name, len, 0x66);
 	if (err)
 		return err;
 	bebug++;
-	trace("delete %u %i/%i, big = %i", bebug, loc, len, rb_big(ri));
-	return bigmap_free(map, loc, rb_big(ri));
+	trace("delete %u %i/%i, big = %i", bebug, loc, len, rb_big(&ri));
+	return bigmap_free(map, loc, rb_big(&ri));
 }
 
 void dir_open(struct bigmap *map)
@@ -152,9 +154,9 @@ int main(int argc, const char *argv[])
 				if (is_maploc(loc, map.blockbits))
 					continue;
 				ext_bigmap_map(&map, 0, loc);
-				struct recinfo ri = {map.path[0].map.data, map.blocksize, map.reclen};
+				struct recinfo ri = {map.blocksize, map.reclen, map.path[0].map.data};
 				unsigned len;
-				u8 *name = rb_key(ri, 0, &len);
+				u8 *name = rb_key(&ri, 0, &len);
 				if (name) {
 					trace("delete '%.*s' len %u [%u]", len, name, len, loc);
 					bigmap_load(&map, loc);
@@ -188,9 +190,9 @@ int main(int argc, const char *argv[])
 			for (unsigned loc = 0; loc < map.blocks; loc++)
 				if (!is_maploc(loc, map.blockbits)) {
 					ext_bigmap_map(&map, 0, loc);
-					struct recinfo ri = {map.path[0].map.data, map.blocksize, map.reclen};
+					struct recinfo ri = {map.blocksize, map.reclen, map.path[0].map.data};
 					printf("%u: ", loc);
-					rb_dump(ri);
+					rb_dump(&ri);
 				}
 		return 0;
 	}
