@@ -1,6 +1,6 @@
-#define VARTAG 0
+enum {taglen = 0}; // optional one byte variable data length borrowed from key
+
 #include "recops.c"
-#undef VARTAG
 
 struct ri : recinfo
 {
@@ -9,9 +9,9 @@ struct ri : recinfo
 };
 
 namespace varops {
-	#define VARTAG 1
+	enum {taglen = 1};
+
 	#include "recops.c"
-	#undef VARTAG
 
 	struct vri : ri
 	{
