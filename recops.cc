@@ -4,7 +4,7 @@
 
 struct ri : recinfo
 {
-	ri(void *data, unsigned size, unsigned reclen) : recinfo{(u8 *)data, size, reclen} {}
+	ri(void *data, unsigned size, unsigned reclen) : recinfo{size, reclen, (u8 *)data} {}
 	#include "recops.inc"
 };
 
