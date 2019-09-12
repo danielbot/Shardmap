@@ -336,6 +336,11 @@ static void set_sentinel(struct bigmap *map)
  * after an attempted create has already failed, so it may already know
  * the exact remaining free space, to avoid future futile create attempts.
  * Or it can assume len - 1 if impractical to know exactly.
+ *
+ * Does not try to initialize new data blocks because inialization needs
+ * to be polymorphic like other record block operations. Instead, returns
+ * 1 for any newly allocated data block so caller can initialize it using
+ * its knowledge of record block variants.
  */
 int bigmap_try(struct bigmap *map, unsigned len, unsigned big)
 {
@@ -347,16 +352,13 @@ int bigmap_try(struct bigmap *map, unsigned len, unsigned big)
 	struct level *p = map->path + 1;
 
 	if (map->levels <= 1) {
-		if (map->levels == 0) {
-		}
-
 		trace("add first map block");
 		add_new_map_block(map, add_map_level(map), (u8[]){big, 0, max_len}, 3);
 		add_new_rec_block(map);
 		p->big = big;
 		p->at = 2;
 		set_sentinel(map);
-		return 0;
+		return 1;
 	}
 
 	trace("find free levels %u big %u", map->levels, big);
@@ -479,10 +481,9 @@ int bigmap_try(struct bigmap *map, unsigned len, unsigned big)
 
 			assert(newcount == newblocks);
 			map->big = max_len;
-			assert(ext_bigmap_big(map, &map->path[0].map) >= len);
 			if (check)
 				path_check(map);
-			return 0;
+			return 1;
 		}
 		stridebits += blockbits;
 	}

@@ -514,6 +514,7 @@ keymap::keymap(struct header &header, const int fd, unsigned reclen) :
 		path[0].map = (struct datamap){.data = frontbuf};
 		maxblocks = layout.map[map_rbspace].size >> blockbits;
 		add_new_rec_block(this);
+		sinkinfo().init();
 		log_clear(microlog);
 	}
 
@@ -1064,8 +1065,6 @@ void ext_bigmap_map(struct bigmap *map, unsigned level, loc_t loc)
 	if (loc == map->blocks) {
 		if (map->blocks >= map->maxblocks)
 			error_exit(1, "too many blocks (%u)", map->blocks + 1);
-		if (!level)
-			((keymap *)map)->sinkinfo().init();
 		map->blocks++;
 	}
 	map->path[level].map.loc = loc;
@@ -1298,7 +1297,8 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 			unify();
 		}
 
-		bigmap_try(this, keylen, ri.big());
+		if (bigmap_try(this, keylen, ri.big() == 1))
+			sinkinfo().init();
 	}
 }
 
