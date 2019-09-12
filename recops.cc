@@ -24,6 +24,7 @@ struct ri : recinfo
 {
 	enum {taglen = 0}; // optional one byte variable data borrowed from key
 	ri(void *data, unsigned size, unsigned reclen) : recinfo{size, reclen, (u8 *)data} {}
+	ri(const ri &ri) : recinfo{ri} {} // copy constructor
 	#include "recops.inc"
 };
 
