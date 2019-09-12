@@ -318,65 +318,6 @@ static void set_sentinel(struct bigmap *map)
 	map->big = max_len;
 }
 
-static void map_new_block(struct bigmap *map)
-{
-	trace("add block");
-	loc_t loc = map->blocks;
-	add_new_rec_block(map);
-
-	/* add map block or update len per level */
-	unsigned blockbits = map->blockbits, stridebits = blockbits, blocksize = 1 << blockbits;
-	unsigned newblocks = nextloc(blockbits, loc) - loc, newcount = 1; // paranoia check
-	assert(newblocks <= blocksize);
-	for (unsigned level = 1; level < map->levels; level++, stridebits += blockbits) {
-		struct level *p = map->path + level;
-		unsigned stridemask = (1 << stridebits) - 1;
-		if ((loc & stridemask) == 0) {
-			add_new_map_block(map, level, (u8[]){max_len}, 1);
-			if (level == 1)
-				p->wrap = newblocks;
-			trace("new map block %u at level %u", p->map.loc, level);
-			newcount++;
-		} else {
-			unsigned ith = loc >> stridebits;
-			unsigned rightmost = (loc >> (stridebits - blockbits)) & (blocksize - 1);
-			unsigned wrap = bigmap_wrap(map, stridebits, ith);
-			loc_t loc = ith_to_maploc(level, map->blockbits, stridebits, ith);
-			if (map->path[level].map.loc != loc) {
-				trace("load map block %u", loc);
-				level_load(map, level, loc, wrap);
-				p->start = p->at = rightmost;
-			} else {
-				assert(p->at == p->start);
-				p->start = 0;
-				p->at = rightmost;
-				p->wrap = wrap;
-			}
-			p->map.data[p->at] = max_len;
-			trace("update %u[%u] level %u", p->map.loc, p->at, level);
-		}
-		assert(p->wrap);
-	}
-
-	/* add new map level? */
-	if (loc == 1 << (stridebits - map->blockbits)) {
-		unsigned level = add_map_level(map);
-		unsigned big = map->big;
-		add_new_map_block(map, level, (u8[]){big, max_len}, 2);
-		map->path[level].at = 1;
-		map->path[level].big = big;
-		//bigmap_dump(map);
-		//path_dump(map);
-		if (check)
-			bigmap_check(map);
-		set_sentinel(map);
-		newcount++;
-	}
-
-	assert(newcount == newblocks);
-	map->big = max_len;
-}
-
 /*
  * Returns with path level zero mapped to a block that may have at least
  * enough free space to store a record with key of indicated length. Path
@@ -483,7 +424,61 @@ int bigmap_try(struct bigmap *map, unsigned len, unsigned big)
 		p[1].map.data[p[1].at] = p->big;
 		p++, level++;
 		if (level == map->levels) {
-			map_new_block(map);
+			trace("add block");
+			loc_t loc = map->blocks;
+			add_new_rec_block(map);
+
+			/* add map block or update len per level */
+			unsigned blockbits = map->blockbits, stridebits = blockbits, blocksize = 1 << blockbits;
+			unsigned newblocks = nextloc(blockbits, loc) - loc, newcount = 1; // paranoia check
+			assert(newblocks <= blocksize);
+			for (unsigned level = 1; level < map->levels; level++, stridebits += blockbits) {
+				struct level *p = map->path + level;
+				unsigned stridemask = (1 << stridebits) - 1;
+				if ((loc & stridemask) == 0) {
+					add_new_map_block(map, level, (u8[]){max_len}, 1);
+					if (level == 1)
+						p->wrap = newblocks;
+					trace("new map block %u at level %u", p->map.loc, level);
+					newcount++;
+				} else {
+					unsigned ith = loc >> stridebits;
+					unsigned rightmost = (loc >> (stridebits - blockbits)) & (blocksize - 1);
+					unsigned wrap = bigmap_wrap(map, stridebits, ith);
+					loc_t loc = ith_to_maploc(level, map->blockbits, stridebits, ith);
+					if (map->path[level].map.loc != loc) {
+						trace("load map block %u", loc);
+						level_load(map, level, loc, wrap);
+						p->start = p->at = rightmost;
+					} else {
+						assert(p->at == p->start);
+						p->start = 0;
+						p->at = rightmost;
+						p->wrap = wrap;
+					}
+					p->map.data[p->at] = max_len;
+					trace("update %u[%u] level %u", p->map.loc, p->at, level);
+				}
+				assert(p->wrap);
+			}
+
+			/* add new map level? */
+			if (loc == 1 << (stridebits - map->blockbits)) {
+				unsigned level = add_map_level(map);
+				unsigned big = map->big;
+				add_new_map_block(map, level, (u8[]){big, max_len}, 2);
+				map->path[level].at = 1;
+				map->path[level].big = big;
+				//bigmap_dump(map);
+				//path_dump(map);
+				if (check)
+					bigmap_check(map);
+				set_sentinel(map);
+				newcount++;
+			}
+
+			assert(newcount == newblocks);
+			map->big = max_len;
 			assert(ext_bigmap_big(map, &map->path[0].map) >= len);
 			if (check)
 				path_check(map);
