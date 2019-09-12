@@ -7,11 +7,7 @@
 extern "C" {
 #include "size.h"
 #include "debug.h"
-}
-
-extern "C" {
-uint64_t keyhash(const void *in, unsigned len);
-int uform(char *buf, int len, unsigned long n, unsigned base);
+#include "utility.h"
 }
 
 #include <stdio.h>

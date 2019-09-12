@@ -11,6 +11,7 @@ extern "C" {
 #include <errno.h>
 #include "size.h"
 #include "debug.h"
+#include "utility.h"
 }
 
 #define trace trace_off

@@ -55,3 +55,16 @@ int uform(char *buf, int len, unsigned long n, unsigned base) // (c) 2019 Daniel
     }
     return len;
 }
+
+const char *cprinz(const void *text, unsigned len) // sanitize string unsafely
+{
+	static char unsafe[256];
+	char *p = unsafe, *q = (char *)text;
+	if (len > 255)
+		len = 255;
+	for (; len--; q++)
+		*p++ = ((unsigned)*q - ' ') < (255 - ' ') ? *q : '.';
+	*p = 0;
+	assert(strlen(unsafe) < 256);
+	return (const char *)unsafe;
+}
