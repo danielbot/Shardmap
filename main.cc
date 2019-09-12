@@ -316,8 +316,6 @@ int main(int argc, const char *argv[])
 
 using namespace std;
 
-//#undef trace
-//#define trace trace_on
 #include <sys/time.h>
 
 int tpcb_run(int fds[5], unsigned scalefactor, unsigned iterations)

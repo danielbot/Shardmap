@@ -434,7 +434,7 @@ int shard::flatten()
 void shard::reshard_part(struct shard *out, unsigned more_shards, unsigned part)
 {
 	unsigned partbits = tablebits - more_shards;
-	trace("reshard x%i buckets %u entries %u", power2(more_shards), out->buckets(), count);
+	trace("reshard x%li buckets %u entries %u", power2(more_shards), out->buckets(), count);
 	for (unsigned bucket = part << partbits; bucket < (part + 1) << partbits; bucket++) {
 		assert(bucket < buckets());
 		if (bucket_used(bucket)) {
@@ -941,7 +941,7 @@ unsigned long tests = 0, probes = 0;
 
 rec_t *shard::lookup(const void *name, unsigned len, hashkey_t key)
 {
-	trace("find '%.*s'", len, name);
+	trace("find '%.*s'", len, (const char *)name);
 	cell_t lowkey = key & bitmask(lowbits);
 	unsigned link = (key >> lowbits) & bitmask(tablebits);
 	trace("key %lx ix %i:%x bucket %x", key, is_lower(), ix, link);
@@ -967,7 +967,7 @@ rec_t *shard::lookup(const void *name, unsigned len, hashkey_t key)
 int shard::insert(const hashkey_t key, const loc_t loc)
 {
 	const unsigned bucket = (key >> lowbits) & bitmask(tablebits);
-	trace("insert key %lx ix %i:%x bucket %x loc %x", key, is_lower(), ix, bucket, loc);
+	trace("insert key %lx ix %i:%i:%x bucket %x loc %x", key, map->id, is_lower(), ix, bucket, loc);
 	assert(bucket < buckets());
 	assert(!((loc + 1) & ~bitmask(tier().locbits))); // overflow paranoia
 	unsigned next = endlist;
@@ -1230,12 +1230,12 @@ int keymap::unify()
 
 enum {verify = 0};
 
-rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool unique)
+rec_t *keymap::insert(const void *name, unsigned namelen, const void *newrec, bool unique)
 {
 	assert(sizeof(struct insert_logent) == 24);
 
 	cell_t key = keyhash(name, namelen) & keymask;
-	trace("insert %.*s => %i %lx", namelen, name, type, key);
+	trace("insert %.*s => %lx", namelen, (const char *)name, key);
 	struct shard *shard = getshard(key >> sigbits, 1);
 
 	if (unique && shard->lookup(name, namelen, key))
@@ -1250,8 +1250,7 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 		struct ri &ri = sinkinfo();
 		if (verify)
 			assert(!ri.check());
-
-		rec_t *rec = ri.create(name, namelen, key, data);
+		rec_t *rec = ri.create(name, namelen, key, newrec);
 		if (!is_errcode(rec)) {
 			loc_t loc = path[0].map.loc;
 			/*
@@ -1275,7 +1274,7 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 
 			u8 logent[sizeof(struct pmblock)];
 			memcpy(logent, &head, sizeof head);
-			memcpy(logent + sizeof head, data, reclen);
+			memcpy(logent + sizeof head, newrec, reclen);
 			memcpy(logent + sizeof head + reclen, name, namelen);
 			unsigned size = sizeof head + reclen + namelen;
 #ifdef SIDELOG
@@ -1291,7 +1290,8 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 			ri.dump();
 
 		assert(errcode(rec) == -ENOSPC);
-		trace("block full (%i of %i)", blocksize - ri.free(), blocksize);
+//		trace("block full (%i of %i)", blocksize - ri.free(), blocksize);
+		trace("block full");
 
 		if (burst()) {
 			trace("block full --> unify");
@@ -1304,7 +1304,7 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *data, bool
 
 int keymap::remove(const void *name, unsigned len)
 {
-	trace("delete '%.*s'", len, name);
+	trace("delete '%.*s'", len, (const char *)name);
 	hashkey_t key = keyhash((const u8 *)name, len) & keymask;
 	return getshard(key >> sigbits, 1)->remove(name, len, key); // wrong! could create a shard just to remove a nonexistent entry
 }
