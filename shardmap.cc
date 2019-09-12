@@ -915,9 +915,9 @@ int keymap::remove(const char *name, unsigned len)
 
 rec_t *keymap::lookup(const void *name, unsigned len)
 {
-	hashkey_t key = keyhash(name, len) & keymask;
-	struct shard *shard = getshard(key >> sigbits, 0);
-	return shard ? shard->lookup(name, len, key) : NULL;
+	hashkey_t hash = keyhash(name, len) & keymask;
+	struct shard *shard = getshard(hash >> sigbits, 0);
+	return shard ? shard->lookup(name, len, hash) : NULL;
 }
 
 shard::shard(struct keymap *map, const struct tier *tier, unsigned i, unsigned tablebits, unsigned linkbits) :
@@ -1234,11 +1234,11 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *newrec, bo
 {
 	assert(sizeof(struct insert_logent) == 24);
 
-	cell_t key = keyhash(name, namelen) & keymask;
-	trace("insert %.*s => %lx", namelen, (const char *)name, key);
-	struct shard *shard = getshard(key >> sigbits, 1);
+	cell_t hash = keyhash(name, namelen) & keymask;
+	trace("insert %.*s => %lx", namelen, (const char *)name, hash);
+	struct shard *shard = getshard(hash >> sigbits, 1);
 
-	if (unique && shard->lookup(name, namelen, key))
+	if (unique && shard->lookup(name, namelen, hash))
 		return (rec_t *)errwrap(-EEXIST);
 
 	if (1 && burst() == logsize - 1) { // one slot reserved for unify
@@ -1250,7 +1250,7 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *newrec, bo
 		struct ri &ri = sinkinfo();
 		if (verify)
 			assert(!ri.check());
-		rec_t *rec = ri.create(name, namelen, key, newrec);
+		rec_t *rec = ri.create(name, namelen, hash, newrec);
 		if (!is_errcode(rec)) {
 			loc_t loc = path[0].map.loc;
 			/*
@@ -1261,11 +1261,11 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *newrec, bo
 			 *  - replacement can have different tier
 			 *  - replacement can have different index
 			 */
-			insert_and_grow(shard, key, loc); // error return!
-			assert(shard == map[key >> sigbits]); // super paranoia
+			insert_and_grow(shard, hash, loc); // error return!
+			assert(shard == map[hash >> sigbits]); // super paranoia
 			unsigned tx = shard->tx, ix = shard->ix;
 			struct tier &tier = tiers[tx];
-			cell_t duo = tier.duo.pack(key & bitmask(sigbits), loc);
+			cell_t duo = tier.duo.pack(hash & bitmask(sigbits), loc);
 			unsigned at = tier.countbuf[ix]++, ax = tx ^ (upper - tiers);
 
 			struct insert_logent head = { // this usage requires c++17
@@ -1305,14 +1305,14 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *newrec, bo
 int keymap::remove(const void *name, unsigned len)
 {
 	trace("delete '%.*s'", len, (const char *)name);
-	hashkey_t key = keyhash((const u8 *)name, len) & keymask;
-	return getshard(key >> sigbits, 1)->remove(name, len, key); // wrong! could create a shard just to remove a nonexistent entry
+	hashkey_t hash = keyhash((const u8 *)name, len) & keymask;
+	return getshard(hash >> sigbits, 1)->remove(name, len, hash); // wrong! could create a shard just to remove a nonexistent entry
 }
 
-int shard::remove(const void *name, unsigned len, hashkey_t key)
+int shard::remove(const void *name, unsigned len, hashkey_t hash)
 {
-	cell_t lowkey = key & bitmask(lowbits);
-	unsigned link = (key >> lowbits) & bitmask(tablebits);
+	cell_t lowkey = hash & bitmask(lowbits);
+	unsigned link = (hash >> lowbits) & bitmask(tablebits);
 	loc_t loc;
 
 	if (bucket_used(link)) {
@@ -1324,10 +1324,10 @@ int shard::remove(const void *name, unsigned len, hashkey_t key)
 				trace("probe block %x", loc);
 				probes++;
 				struct ri ri = map->peekinfo(loc);
-				int err = ri.remove(name, len, key);
+				int err = ri.remove(name, len, hash);
 				if (!err) {
 					trace("delete %i/%i, big = %i", loc, len, ri.big());
-					if (remove(key, loc) == -ENOENT)
+					if (remove(hash, loc) == -ENOENT)
 						break;
 					bigmap_free(map, loc, ri.big());
 					goto logging;
@@ -1341,7 +1341,7 @@ int shard::remove(const void *name, unsigned len, hashkey_t key)
 logging:
 	// don't forget: squash still not handled!!! (also need for insert)
 	struct tier &tier = map->tiers[tx];
-	cell_t duo = tier.duo.pack(key & bitmask(map->sigbits), loc) | high64;
+	cell_t duo = tier.duo.pack(hash & bitmask(map->sigbits), loc) | high64;
 	unsigned at = tier.countbuf[ix]++, ax = tx ^ (map->upper - map->tiers);
 	struct delete_logent head = { .logtype = 2, .ax = ax, .ix = ix, .at = at, .duo = duo };
 #ifdef SIDELOG
