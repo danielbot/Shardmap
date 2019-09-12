@@ -1,5 +1,3 @@
-enum {tabent_size = sizeof(struct tabent), header_size = sizeof(struct rb)};
-
 virtual struct rb *irb()
 {
 	struct rb *rb = (struct rb *)data;

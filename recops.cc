@@ -14,6 +14,8 @@ struct rb
 	struct tabent table[];
 };
 
+enum {tabent_size = sizeof(struct tabent), header_size = sizeof(struct rb)};
+
 struct recinfo { const unsigned blocksize, reclen; u8 *data; loc_t loc; };
 
 typedef u8 rec_t;
@@ -30,12 +32,9 @@ struct ri : recinfo
 	#include "recops.inc"
 };
 
-namespace varops {
+struct vri : ri
+{
 	enum {taglen = 1};
-
-	struct vri : ri
-	{
-		vri(void *data, unsigned size, unsigned reclen) : ri{data, size, reclen} {}
-		#include "recops.inc"
-	};
-}
+	vri(void *data, unsigned size, unsigned reclen) : ::ri{data, size, reclen} {}
+	#include "recops.inc"
+};
