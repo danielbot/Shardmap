@@ -143,6 +143,7 @@ virtual rec_t *lookup(const void *key, u8 len, u16 lowhash)
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
 	unsigned hash = rb_hash(lowhash);
+	trace("'%.*s' hash %i tag %i", len, (const char *)key, hash, taglen);
 	assert(hash != holecode);
 
 	for (unsigned i = 0; i < rb->count; i++) {
@@ -176,7 +177,7 @@ virtual rec_t *create(const void *newkey, u8 newlen, u16 lowhash, const void *ne
 	struct rb *rb = irb();
 	unsigned gap = rb_gap(rb), last = rb->count - 1, pos = last;
 	rec_t *rec;
-	trace("hash %x gap %u free %u", rb_hash(lowhash), gap, rb->free);
+	trace("'%.*s' hash %i tag %i gap %u free %u", newlen, (const char *)newkey, rb_hash(lowhash), taglen, gap, rb->free);
 
 	int need, holespace;
 	unsigned keylen;
@@ -329,6 +330,7 @@ virtual int remove(const void *key, u8 len, u16 lowhash)
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
 	unsigned hash = rb_hash(lowhash);
+	trace("'%.*s' hash %i tag %i", len, (const char *)key, hash, taglen);
 
 	for (unsigned i = 0; i < rb->count; i++) {
 		unsigned keylen = rb->table[i].len;
