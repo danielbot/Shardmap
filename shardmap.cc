@@ -898,26 +898,26 @@ int keymap::insert_and_grow(struct shard *&shard, const hashkey_t key, const loc
 	return shard->insert(key, loc);
 }
 
-rec_t *keymap::lookup(const char *name, unsigned len)
+rec_t *keymap::lookup(const char *key, unsigned len)
 {
-	return lookup((const u8 *)name, len);
+	return lookup((const u8 *)key, len);
 }
 
-rec_t *keymap::insert(const char *name, unsigned namelen, const void *data, bool unique)
+rec_t *keymap::insert(const char *key, unsigned len, const void *data, bool unique)
 {
-	return insert((const u8 *)name, namelen, data, unique);
+	return insert((const u8 *)key, len, data, unique);
 }
 
-int keymap::remove(const char *name, unsigned len)
+int keymap::remove(const char *key, unsigned len)
 {
-	return remove((const u8 *)name, len);
+	return remove((const u8 *)key, len);
 }
 
-rec_t *keymap::lookup(const void *name, unsigned len)
+rec_t *keymap::lookup(const void *key, unsigned len)
 {
-	hashkey_t hash = keyhash(name, len) & keymask;
+	hashkey_t hash = keyhash(key, len) & keymask;
 	struct shard *shard = getshard(hash >> sigbits, 0);
-	return shard ? shard->lookup(name, len, hash) : NULL;
+	return shard ? shard->lookup(key, len, hash) : NULL;
 }
 
 shard::shard(struct keymap *map, const struct tier *tier, unsigned i, unsigned tablebits, unsigned linkbits) :
@@ -939,22 +939,22 @@ bool shard::is_lower() { return tx == map->lower - map->tiers; }
 
 unsigned long tests = 0, probes = 0;
 
-rec_t *shard::lookup(const void *name, unsigned len, hashkey_t key)
+rec_t *shard::lookup(const void *key, unsigned len, hashkey_t hash)
 {
-	trace("find '%.*s'", len, (const char *)name);
-	cell_t lowkey = key & bitmask(lowbits);
-	unsigned link = (key >> lowbits) & bitmask(tablebits);
-	trace("key %lx ix %i:%x bucket %x", key, is_lower(), ix, link);
+	trace("find '%.*s'", len, (const char *)key);
+	cell_t lowhash = hash & bitmask(lowbits);
+	unsigned link = (hash >> lowbits) & bitmask(tablebits);
+	trace("hash %lx ix %i:%x bucket %x", hash, is_lower(), ix, link);
 	if (bucket_used(link)) {
 		tests++;
 		do {
 			const cell_t &entry = table[link].key_loc_link;
-			if (trio.third(entry) == lowkey) {
+			if (trio.third(entry) == lowhash) {
 				loc_t loc = trio.second(entry);
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
 				struct ri ri = map->peekinfo(loc);
-				rec_t *rec = ri.lookup(name, len, key);
+				rec_t *rec = ri.lookup(key, len, hash);
 				if (rec)
 					return rec;
 			}
@@ -1095,7 +1095,7 @@ struct delete_logent
 
 struct insert_logent : delete_logent
 {
-	u8 namelen, unused[7];
+	u8 keylen, unused[7];
 };
 
 struct unify_logent
@@ -1230,15 +1230,15 @@ int keymap::unify()
 
 enum {verify = 0};
 
-rec_t *keymap::insert(const void *name, unsigned namelen, const void *newrec, bool unique)
+rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool unique)
 {
 	assert(sizeof(struct insert_logent) == 24);
 
-	cell_t hash = keyhash(name, namelen) & keymask;
-	trace("insert %.*s => %lx", namelen, (const char *)name, hash);
+	cell_t hash = keyhash(key, keylen) & keymask;
+	trace("insert %.*s => %lx", keylen, (const char *)key, hash);
 	struct shard *shard = getshard(hash >> sigbits, 1);
 
-	if (unique && shard->lookup(name, namelen, hash))
+	if (unique && shard->lookup(key, keylen, hash))
 		return (rec_t *)errwrap(-EEXIST);
 
 	if (1 && burst() == logsize - 1) { // one slot reserved for unify
@@ -1250,7 +1250,7 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *newrec, bo
 		struct ri &ri = sinkinfo();
 		if (verify)
 			assert(!ri.check());
-		rec_t *rec = ri.create(name, namelen, hash, newrec);
+		rec_t *rec = ri.create(key, keylen, hash, newrec);
 		if (!is_errcode(rec)) {
 			loc_t loc = path[0].map.loc;
 			/*
@@ -1270,13 +1270,13 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *newrec, bo
 
 			struct insert_logent head = { // this usage requires c++17
 				{ .logtype = 1, .ax = ax, .ix = ix, .at = at, .duo = duo },
-				.namelen = namelen };
+				.keylen = keylen };
 
 			u8 logent[sizeof(struct pmblock)];
 			memcpy(logent, &head, sizeof head);
 			memcpy(logent + sizeof head, newrec, reclen);
-			memcpy(logent + sizeof head + reclen, name, namelen);
-			unsigned size = sizeof head + reclen + namelen;
+			memcpy(logent + sizeof head + reclen, key, keylen);
+			unsigned size = sizeof head + reclen + keylen;
 #ifdef SIDELOG
 			sidelog[logtail] = (struct sidelog){ .duo = duo, .at = at, .ix = ix, .rx = tx };
 #endif
@@ -1298,18 +1298,18 @@ rec_t *keymap::insert(const void *name, unsigned namelen, const void *newrec, bo
 			unify();
 		}
 
-		bigmap_try(this, namelen, ri.big());
+		bigmap_try(this, keylen, ri.big());
 	}
 }
 
-int keymap::remove(const void *name, unsigned len)
+int keymap::remove(const void *key, unsigned len)
 {
-	trace("delete '%.*s'", len, (const char *)name);
-	hashkey_t hash = keyhash((const u8 *)name, len) & keymask;
-	return getshard(hash >> sigbits, 1)->remove(name, len, hash); // wrong! could create a shard just to remove a nonexistent entry
+	trace("delete '%.*s'", len, (const char *)key);
+	hashkey_t hash = keyhash((const u8 *)key, len) & keymask;
+	return getshard(hash >> sigbits, 1)->remove(key, len, hash); // wrong! could create a shard just to remove a nonexistent entry
 }
 
-int shard::remove(const void *name, unsigned len, hashkey_t hash)
+int shard::remove(const void *key, unsigned len, hashkey_t hash)
 {
 	cell_t lowkey = hash & bitmask(lowbits);
 	unsigned link = (hash >> lowbits) & bitmask(tablebits);
@@ -1324,7 +1324,7 @@ int shard::remove(const void *name, unsigned len, hashkey_t hash)
 				trace("probe block %x", loc);
 				probes++;
 				struct ri ri = map->peekinfo(loc);
-				int err = ri.remove(name, len, hash);
+				int err = ri.remove(key, len, hash);
 				if (!err) {
 					trace("delete %i/%i, big = %i", loc, len, ri.big());
 					if (remove(hash, loc) == -ENOENT)
@@ -1379,21 +1379,21 @@ int test(int argc, const char *argv[])
 
 	struct keymap sm{head, fd};
 
-	enum {samesize = 0, maxname = 255};
-	u8 name[maxname + (-maxname & 7)];
+	enum {samesize = 0, maxkey = 255};
+	u8 key[maxkey + (-maxkey & 7)];
 
-	auto makename = [&](int i) -> int
+	auto makekey = [&](int i) -> int
 	{
-		int namelen;
+		int keylen;
 
 		if (1)
-			namelen = uform((char *)name, sizeof name, i, 0x10);
+			keylen = uform((char *)key, sizeof key, i, 0x10);
 		else if (1)
-			namelen = snprintf((char *)name, sizeof name, samesize ? "%06x" : "%u", i);
+			keylen = snprintf((char *)key, sizeof key, samesize ? "%06x" : "%u", i);
 		else
-			memset(name, 'a' + (i & 0xf), namelen = 6);
+			memset(key, 'a' + (i & 0xf), keylen = 6);
 
-		return namelen;
+		return keylen;
 	};
 
 	if (0) {
@@ -1410,11 +1410,11 @@ int test(int argc, const char *argv[])
 		trace_on("%i inserts", n);
 		u8 data[sm.reclen] = {};
 		for (unsigned i = 0; i < n; i++) {
-			int namelen = makename(i);
-			trace("%i: insert '%.*s'", i, namelen, name);
+			int keylen = makekey(i);
+			trace("%i: insert '%.*s'", i, keylen, key);
 			if (sm.reclen >= sizeof(u32))
 				((u32 *)data)[0] = i;
-			sm.insert(name, namelen, data);
+			sm.insert(key, keylen, data);
 		}
 	}
 
@@ -1422,25 +1422,25 @@ int test(int argc, const char *argv[])
 		trace_on("%i lookups", n);
 		sm.unify();
 		for (unsigned i = 0; i < n; i++) {
-			int namelen = makename(i);
-			trace("%i: lookup '%.*s'", i, namelen, name);
-			rec_t *rec = sm.lookup(name, namelen);
+			int keylen = makekey(i);
+			trace("%i: lookup '%.*s'", i, keylen, key);
+			rec_t *rec = sm.lookup(key, keylen);
 			if (!rec)
-				warn("lookup '%.*s' failed", namelen, name);
+				warn("lookup '%.*s' failed", keylen, key);
 			if (0 && rec)
 				hexdump(rec, 6); // use per table reclen!!!
 		}
 	}
 
 	if (1) {
-		char *name = (char *)"123";
-		rec_t *rec = sm.lookup(name, strlen(name));
+		char *key = (char *)"123";
+		rec_t *rec = sm.lookup(key, strlen(key));
 		if (!rec)
 			return 1;
 		hexdump(rec, 6); // use per table reclen!!!
-		printf("remove result: %i\n", sm.remove(name, strlen(name)));
-		printf("remove result: %i\n", sm.remove(name, strlen(name)));
-		printf("lookup result: %p\n", sm.lookup(name, strlen(name)));
+		printf("remove result: %i\n", sm.remove(key, strlen(key)));
+		printf("remove result: %i\n", sm.remove(key, strlen(key)));
+		printf("lookup result: %p\n", sm.lookup(key, strlen(key)));
 		sm.dump(4);
 	}
 
@@ -1473,12 +1473,12 @@ int test(int argc, const char *argv[])
 
 		struct context { int count, reclen; } context = { 0, sm.reclen };
 
-		auto actor = [](void *context_, u8 *name, unsigned namelen, u8 *data, unsigned reclen)
+		auto actor = [](void *context_, u8 *key, unsigned keylen, u8 *data, unsigned reclen)
 		{
 			struct context *context = (struct context *)context_;
 
 			if (verbose) {
-				printf("%.*s: ", namelen, name);
+				printf("%.*s: ", keylen, key);
 				hexdump(data, std::min(reclen, 16U));
 			}
 			context->count++;
@@ -1518,11 +1518,11 @@ int test(int argc, const char *argv[])
 		trace_on("%i inserts", n);
 		u8 data[sm.reclen] = {};
 		for (unsigned i = 0; i < n; i++) {
-			int namelen = makename(i);
-			trace("%i: insert '%.*s'", i, namelen, name);
+			int keylen = makekey(i);
+			trace("%i: insert '%.*s'", i, keylen, key);
 			if (sm.reclen >= sizeof(u32))
 				((u32 *)data)[0] = i;
-			sm.insert(name, namelen, data);
+			sm.insert(key, keylen, data);
 		}
 	}
 
@@ -1530,25 +1530,25 @@ int test(int argc, const char *argv[])
 		trace_on("%i lookups", n);
 		sm.unify();
 		for (unsigned i = 0; i < n; i++) {
-			int namelen = makename(i);
-			trace("%i: lookup '%.*s'", i, namelen, name);
-			rec_t *rec = sm.lookup(name, namelen);
+			int keylen = makekey(i);
+			trace("%i: lookup '%.*s'", i, keylen, key);
+			rec_t *rec = sm.lookup(key, keylen);
 			if (!rec)
-				warn("lookup '%.*s' failed", namelen, name);
+				warn("lookup '%.*s' failed", keylen, key);
 			if (0 && rec)
 				hexdump(rec, 6); // use per table reclen!!!
 		}
 	}
 
 	if (1) {
-		char *name = (char *)"123";
-		rec_t *rec = sm.lookup(name, strlen(name));
+		char *key = (char *)"123";
+		rec_t *rec = sm.lookup(key, strlen(key));
 		if (!rec)
 			return 1;
 		hexdump(rec, 6); // use per table reclen!!!
-		printf("remove result: %i\n", sm.remove(name, strlen(name)));
-		printf("remove result: %i\n", sm.remove(name, strlen(name)));
-		printf("lookup result: %p\n", sm.lookup(name, strlen(name)));
+		printf("remove result: %i\n", sm.remove(key, strlen(key)));
+		printf("remove result: %i\n", sm.remove(key, strlen(key)));
+		printf("lookup result: %p\n", sm.lookup(key, strlen(key)));
 		sm.dump(4);
 	}
 
@@ -1581,12 +1581,12 @@ int test(int argc, const char *argv[])
 
 		struct context { int count, reclen; } context = { 0, sm.reclen };
 
-		auto actor = [](void *context_, u8 *name, unsigned namelen, u8 *data, unsigned reclen)
+		auto actor = [](void *context_, u8 *key, unsigned keylen, u8 *data, unsigned reclen)
 		{
 			struct context *context = (struct context *)context_;
 
 			if (verbose) {
-				printf("%.*s: ", namelen, name);
+				printf("%.*s: ", keylen, key);
 				hexdump(data, std::min(reclen, 16U));
 			}
 			context->count++;
