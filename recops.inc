@@ -23,7 +23,7 @@ static unsigned rb_gap(struct rb *rb)
 virtual void init()
 {
 	struct rb *rb = (struct rb *)data; // avoid assert by not using irb
-	*rb = (struct rb){.size = blocksize};
+	*rb = (struct rb){.size = (typeof rb->size)blocksize};
 	memcpy(rb->magic, "RB", 2); // because c++ char array init is braindamaged
 }
 
