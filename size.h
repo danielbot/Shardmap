@@ -9,3 +9,4 @@ typedef unsigned fixed8;
 typedef int64_t s64;
 
 typedef u32 loc_t;
+typedef u8 rec_t;

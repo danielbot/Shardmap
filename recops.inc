@@ -1,4 +1,4 @@
-virtual struct rb *irb()
+struct rb *irb()
 {
 	struct rb *rb = (struct rb *)data;
 	assert(!memcmp(rb->magic, "RB", 2));
@@ -6,28 +6,28 @@ virtual struct rb *irb()
 	return rb;
 }
 
-virtual struct rb *irbrec(rec_t **rec)
+struct rb *irbrec(rec_t **rec)
 {
 	struct rb *rb = irb();
 	*rec = (rec_t *)(data + rb->size);
 	return rb;
 }
 
-static unsigned rb_gap(struct rb *rb)
+unsigned rb_gap(struct rb *rb)
 {
 	return (u8 *)rb + rb->size - rb->used - (u8 *)(rb->table + rb->count);
 }
 
 /* Exports */
 
-virtual void init()
+void init()
 {
 	struct rb *rb = (struct rb *)data; // avoid assert by not using irb
 	*rb = (struct rb){.size = (typeof rb->size)blocksize};
 	memcpy(rb->magic, "RB", 2); // because c++ char array init is braindamaged
 }
 
-virtual int big()
+int big()
 {
 	struct rb *rb = irb();
 	unsigned overhead = reclen + tabent_size;
@@ -36,13 +36,13 @@ virtual int big()
 	return big > maxname ? maxname : big;
 }
 
-virtual int more()
+int more()
 {
 	struct rb *rb = irb();
 	return rb_gap(rb) + rb->free;
 }
 
-virtual void dump()
+void dump()
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
@@ -64,7 +64,7 @@ virtual void dump()
 }
 
 /* Look up entry by index for testing, later use for seekdir */
-virtual void *key(unsigned which, unsigned *ret) // untested!
+void *key(unsigned which, unsigned *ret) // untested!
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
@@ -78,7 +78,7 @@ virtual void *key(unsigned which, unsigned *ret) // untested!
 	return rb->table[which].hash == holecode ? NULL : (rec + reclen);
 }
 
-virtual bool check()
+bool check()
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
@@ -137,7 +137,7 @@ virtual bool check()
 	return errs;
 }
 
-virtual rec_t *lookup(const void *key, u8 len, u16 lowhash)
+rec_t *lookup(const void *key, u8 len, u16 lowhash)
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
@@ -158,7 +158,7 @@ virtual rec_t *lookup(const void *key, u8 len, u16 lowhash)
 	return NULL;
 }
 
-virtual rec_t *varlookup(const void *key, u8 len, u16 lowhash, u8 *varlen)
+rec_t *varlookup(const void *key, u8 len, u16 lowhash, u8 *varlen)
 {
 	rec_t *rec = lookup(key, len, lowhash);
 	if (rec)
@@ -166,12 +166,12 @@ virtual rec_t *varlookup(const void *key, u8 len, u16 lowhash, u8 *varlen)
 	return rec;
 }
 
-virtual rec_t *create(const void *newkey, u8 newlen, u16 lowhash, const void *newrec)
+rec_t *create(const void *newkey, u8 newlen, u16 lowhash, const void *newrec)
 {
 	return create(newkey, newlen, lowhash, newrec, 0);
 }
 
-virtual rec_t *create(const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen)
+rec_t *create(const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen)
 {
 	struct rb *rb = irb();
 	unsigned gap = rb_gap(rb), last = rb->count - 1, pos = last;
@@ -324,7 +324,7 @@ create:
 	return rec;
 }
 
-virtual int remove(const void *key, u8 len, u16 lowhash)
+int remove(const void *key, u8 len, u16 lowhash)
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
@@ -363,7 +363,7 @@ virtual int remove(const void *key, u8 len, u16 lowhash)
 	return -ENOENT;
 }
 
-virtual int walk(rb_walk_fn fn, void *context)
+int walk(rb_walk_fn fn, void *context)
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
