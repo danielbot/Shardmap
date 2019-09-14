@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-optbase=-fPIC -Wno-sign-compare
+optbase=-fPIC -Wno-sign-compare -Wno-address-of-packed-member
 
 opt=-O3 $(optbase)
 
