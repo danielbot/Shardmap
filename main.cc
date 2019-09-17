@@ -16,8 +16,11 @@ extern "C" {
 
 #define trace trace_off
 
-#include "recops.cc"
+struct recinfo { const unsigned blocksize, reclen; u8 *data; loc_t loc; };
+typedef void (rb_walk_fn)(void *context, u8 *key, unsigned keylen, u8 *data, unsigned reclen);
+
 #include "shardmap.h"
+#include "recops.cc"
 
 #include <type_traits> // is_pod
 extern "C" {
@@ -191,9 +194,12 @@ int main(int argc, const char *argv[])
 		.lower = {}
 	};
 
+	struct ribase sink = {NULL, power2(head.blockbits), keymap::reclen_default};
+	struct ribase peek = {NULL, power2(head.blockbits), keymap::reclen_default};
+
 	if (0) {
 		unsigned n = 1000, seed = 1;
-		struct keymap sm{head, -1};
+		struct keymap sm{head, sink, peek, -1};
 		struct shard *shard = new struct shard(&sm, sm.upper, -1, 18, 19);
 		u64 sigmask = bitmask(sm.upper->sigbits);
 
@@ -230,7 +236,7 @@ int main(int argc, const char *argv[])
 		errno_exit(1);
 
 	if (0) {
-		struct keymap sm{head, -1};
+		struct keymap sm{head, sink, peek, -1};
 		printf("blockbits %i tablebits %i stridebits %i\n", sm.blockbits, sm.tablebits, sm.upper->stridebits);
 		sm.populate(0, 1);
 		sm.map[0]->dump();
@@ -263,7 +269,7 @@ int main(int argc, const char *argv[])
 			},
 		};
 
-		struct keymap sm{head, fd};
+		struct keymap sm{head, sink, peek, fd};
 
 		if (0) {
 			struct shard *shard = new struct shard(&sm, sm.upper, 0, 3, 4);
@@ -373,10 +379,22 @@ int tpcb_run(int fds[5], unsigned scalefactor, unsigned iterations)
 	/*
 	 * One kvs table per file
 	 */
-	struct keymap branches{head, fds[1], 100};
-	struct keymap accounts{head, fds[2], 100};
-	struct keymap tellers{head, fds[3], 100};
-	struct keymap history{head, fds[4], 50};
+	struct ri sink1 = {NULL, power2(head.blockbits), 100};
+	struct ri peek1 = {NULL, power2(head.blockbits), 100};
+	struct ri sink2 = {NULL, power2(head.blockbits), 100};
+	struct ri peek2 = {NULL, power2(head.blockbits), 100};
+	struct ri sink3 = {NULL, power2(head.blockbits), 100};
+	struct ri peek3 = {NULL, power2(head.blockbits), 100};
+	struct ri sink4 = {NULL, power2(head.blockbits), 50};
+	struct ri peek4 = {NULL, power2(head.blockbits), 50};
+	trace("branches...");
+	struct keymap branches{head, sink1, peek1, fds[1], 100};
+	trace("accounts...");
+	struct keymap accounts{head, sink2, peek2, fds[2], 100};
+	trace("tellers...");
+	struct keymap tellers{head, sink3, peek3, fds[3], 100};
+	trace("history...");
+	struct keymap history{head, sink4, peek4, fds[4], 50};
 
 	/*
 	 * Provide these lists to driver to generate transactions

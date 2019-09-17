@@ -1,4 +1,4 @@
-struct rb *irb()
+struct rb *irb() override
 {
 	struct rb *rb = (struct rb *)data;
 	assert(!memcmp(rb->magic, "RB", 2));
@@ -6,28 +6,28 @@ struct rb *irb()
 	return rb;
 }
 
-struct rb *irbrec(rec_t **rec)
+struct rb *irbrec(rec_t **rec) override
 {
 	struct rb *rb = irb();
 	*rec = (rec_t *)(data + rb->size);
 	return rb;
 }
 
-unsigned rb_gap(struct rb *rb)
+unsigned rb_gap(struct rb *rb) override
 {
 	return (u8 *)rb + rb->size - rb->used - (u8 *)(rb->table + rb->count);
 }
 
 /* Exports */
 
-void init()
+void init() override
 {
 	struct rb *rb = (struct rb *)data; // avoid assert by not using irb
 	*rb = (struct rb){.size = (typeof rb->size)blocksize};
 	memcpy(rb->magic, "RB", 2); // because c++ char array init is braindamaged
 }
 
-int big()
+int big() override
 {
 	struct rb *rb = irb();
 	unsigned overhead = reclen + tabent_size;
@@ -36,13 +36,13 @@ int big()
 	return big > maxname ? maxname : big;
 }
 
-int more()
+int more() override
 {
 	struct rb *rb = irb();
 	return rb_gap(rb) + rb->free;
 }
 
-void dump()
+void dump() override
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
@@ -64,7 +64,7 @@ void dump()
 }
 
 /* Look up entry by index for testing, later use for seekdir */
-void *key(unsigned which, unsigned *ret) // untested!
+void *key(unsigned which, unsigned *ret)  override
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
@@ -78,7 +78,7 @@ void *key(unsigned which, unsigned *ret) // untested!
 	return rb->table[which].hash == holecode ? NULL : (rec + reclen);
 }
 
-bool check()
+bool check() override
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
@@ -137,7 +137,7 @@ bool check()
 	return errs;
 }
 
-rec_t *lookup(const void *key, u8 len, u16 lowhash)
+rec_t *lookup(const void *key, u8 len, u16 lowhash) override
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
@@ -158,7 +158,7 @@ rec_t *lookup(const void *key, u8 len, u16 lowhash)
 	return NULL;
 }
 
-rec_t *varlookup(const void *key, u8 len, u16 lowhash, u8 *varlen)
+rec_t *varlookup(const void *key, u8 len, u16 lowhash, u8 *varlen) override
 {
 	rec_t *rec = lookup(key, len, lowhash);
 	if (rec)
@@ -166,12 +166,12 @@ rec_t *varlookup(const void *key, u8 len, u16 lowhash, u8 *varlen)
 	return rec;
 }
 
-rec_t *create(const void *newkey, u8 newlen, u16 lowhash, const void *newrec)
+rec_t *create(const void *newkey, u8 newlen, u16 lowhash, const void *newrec) override
 {
 	return create(newkey, newlen, lowhash, newrec, 0);
 }
 
-rec_t *create(const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen)
+rec_t *create(const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen) override
 {
 	struct rb *rb = irb();
 	unsigned gap = rb_gap(rb), last = rb->count - 1, pos = last;
@@ -324,7 +324,7 @@ create:
 	return rec;
 }
 
-int remove(const void *key, u8 len, u16 lowhash)
+int remove(const void *key, u8 len, u16 lowhash) override
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);
@@ -363,7 +363,7 @@ int remove(const void *key, u8 len, u16 lowhash)
 	return -ENOENT;
 }
 
-int walk(rb_walk_fn fn, void *context)
+int walk(rb_walk_fn fn, void *context) override
 {
 	rec_t *rec;
 	struct rb *rb = irbrec(&rec);

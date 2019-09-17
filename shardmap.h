@@ -137,6 +137,28 @@ protected: // disallow stack instance because of self destruct
 	friend class keymap; // allow delete
 };
 
+struct ribase : recinfo
+{
+	ribase(void *data, unsigned size, unsigned reclen);
+	ribase(const ribase &ri); // copy constructor
+	virtual struct rb *irb() { assert(0); return 0; }
+	virtual struct rb *irbrec(rec_t **rec) { assert(0); return 0; }
+	virtual unsigned rb_gap(struct rb *rb) { assert(0); return 0; }
+public:
+	virtual void init() { assert(0); }
+	virtual int big() { assert(0); return 0; }
+	virtual int more() { assert(0); return 0; }
+	virtual void dump() { assert(0); }
+	virtual void *key(unsigned which, unsigned *ret) { assert(0); return 0; }
+	virtual bool check() { assert(0); return 0; }
+	virtual rec_t *lookup(const void *key, u8 len, u16 lowhash) { assert(0); return 0; }
+	virtual rec_t *varlookup(const void *key, u8 len, u16 lowhash, u8 *varlen) { assert(0); return 0; }
+	virtual rec_t *create(const void *newkey, u8 newlen, u16 lowhash, const void *newrec) { assert(0); return 0; }
+	virtual rec_t *create(const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen) { assert(0); return 0; }
+	virtual int remove(const void *key, u8 len, u16 lowhash) { assert(0); return 0; }
+	virtual int walk(rb_walk_fn fn, void *context) { assert(0); return 0; }
+};
+
 #ifndef SIDELOG
 #define SIDELOG
 #endif
@@ -152,8 +174,8 @@ struct keymap : bigmap
 	float loadfactor; // working as intended but obscure in places
 	struct datamap peek; // for lookups
 	struct header &header;
-	struct ri sinkbh;
-	struct ri peekbh;
+	struct ribase &sinkbh;
+	struct ribase &peekbh;
 //	struct datamap header; // sm header including map geometry
 	int fd;
 	unsigned id;
@@ -180,14 +202,14 @@ struct keymap : bigmap
 
 	enum {reclen_default = 100};
 
-	keymap(struct header &header, const int fd, unsigned reclen = reclen_default);
+	keymap(struct header &header, struct ribase &sinkbh, struct ribase &peekbh, const int fd, unsigned reclen = reclen_default);
 
 	struct shard *new_shard(const struct tier *tier, unsigned i, unsigned tablebits, bool virgin = 1);
 	struct shard **mapalloc();
 	~keymap();
 
-	struct ri &sinkinfo();
-	struct ri &peekinfo(loc_t loc);
+	struct ribase &sinkinfo();
+	struct ribase &peekinfo(loc_t loc);
 	void spam(struct shard *shard);
 	void spam(struct shard *shard_or_null, unsigned ix, unsigned shift);
 	void dump(unsigned flags = 1);

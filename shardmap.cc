@@ -26,8 +26,11 @@ extern "C" {
 #define trace trace_off
 #define warn trace_on
 
-#include "recops.cc"
+struct recinfo { const unsigned blocksize, reclen; u8 *data; loc_t loc; };
+typedef void (rb_walk_fn)(void *context, u8 *key, unsigned keylen, u8 *data, unsigned reclen);
+
 #include "shardmap.h"
+#include "recops.cc"
 
 void errno_exit(unsigned exitcode);
 void error_exit(unsigned exitcode, const char *reason, ...);
@@ -481,17 +484,14 @@ unsigned calc_sigbits(const unsigned tablebits, const fixed8 loadfactor, const u
 
 static unsigned mapid = 1; // could be different every run, is that ok??
 
-keymap::keymap(struct header &header, const int fd, unsigned reclen) :
+keymap::keymap(struct header &header, struct ribase &sinkbh, struct ribase &peekbh, const int fd, unsigned reclen) :
 	bigmap(), // unfortunately impossible to initialize bigmap members here
 	map(0), tiers({{header, header.upper}, {header, header.lower}}),
 	tablebits(header.tablebits),
 	shards(power2(upper->mapbits)), pending(0),
 	loadfactor(header.loadfactor),
 	peek({NULL, -1}),
-	header(header),
-	sinkbh((struct /*varops::vh*/ri){NULL, power2(header.blockbits), reclen}),
-	peekbh((struct /*varops::vh*/ri){NULL, power2(header.blockbits), reclen}),
-	fd(fd), id(mapid++)
+	header(header), sinkbh(sinkbh), peekbh(peekbh), fd(fd), id(mapid++)
 {
 	printf("upper mapbits %u stridebits %u locbits %u sigbits %u\n",
 		upper->mapbits, upper->stridebits, upper->locbits, upper->sigbits);
@@ -552,13 +552,13 @@ keymap::~keymap()
 	free(map);
 }
 
-struct ri &keymap::sinkinfo()
+struct ribase &keymap::sinkinfo()
 {
 	sinkbh.data = path[0].map.data; // would like to get rid of this assignment
 	return sinkbh; // maybe by using struct ri directly in path[] and losing datamap
 }
 
-struct ri &keymap::peekinfo(loc_t loc)
+struct ribase &keymap::peekinfo(loc_t loc)
 {
 	if (loc == path[0].map.loc)
 		return sinkinfo();
@@ -938,7 +938,7 @@ unsigned long tests = 0, probes = 0;
 
 rec_t *shard::lookup(const void *key, unsigned len, hashkey_t hash)
 {
-	trace("find '%.*s'", len, (const char *)key);
+	trace("find '%s'", cprinz(key, len));
 	cell_t lowhash = hash & bitmask(lowbits);
 	unsigned link = (hash >> lowbits) & bitmask(tablebits);
 	trace("hash %lx ix %i:%x bucket %x", hash, is_lower(), ix, link);
@@ -950,8 +950,7 @@ rec_t *shard::lookup(const void *key, unsigned len, hashkey_t hash)
 				loc_t loc = trio.second(entry);
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
-				struct ri ri = map->peekinfo(loc);
-				rec_t *rec = ri.lookup(key, len, hash);
+				rec_t *rec = map->peekinfo(loc).lookup(key, len, hash);
 				if (rec)
 					return rec;
 			}
@@ -1178,10 +1177,9 @@ int keymap::unify()
 		log_read(&block, log, i);
 		memcpy(&entry, &block, sizeof entry); // stupid or not, strict aliasing requires this!
 
-		trace("%i: '%.*s' => %i:%u %.16lx @%i",
+		trace("%i: '%s' => %i:%u %.16lx @%i",
 			(i - head) & logmask,
-			entry.head.len,
-			&block + sizeof entry,
+			cprinz(&block + sizeof entry, entry.head.len),
 			entry.head.type,
 			(unsigned)entry.head.duo,
 			entry.hash,
@@ -1230,7 +1228,7 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 	assert(sizeof(struct insert_logent) == 24);
 
 	cell_t hash = keyhash(key, keylen) & keymask;
-	trace("insert %.*s => %lx", keylen, (const char *)key, hash);
+	trace("insert %s => %lx", cprinz((const char *)key, keylen), hash);
 	struct shard *shard = getshard(hash >> sigbits, 1);
 
 	if (unique && shard->lookup(key, keylen, hash))
@@ -1242,7 +1240,7 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 	}
 
 	while (1) {
-		struct ri &ri = sinkinfo();
+		struct ribase &ri = sinkinfo();
 		if (verify)
 			assert(!ri.check());
 		rec_t *rec = ri.create(key, keylen, hash, newrec);
@@ -1293,7 +1291,7 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 			unify();
 		}
 
-		if (bigmap_try(this, keylen, ri.big() == 1))
+		if (bigmap_try(this, keylen, ri.big()) == 1)
 			sinkinfo().init();
 	}
 }
@@ -1319,7 +1317,7 @@ int shard::remove(const void *key, unsigned len, hashkey_t hash)
 				loc = trio.second(entry);
 				trace("probe block %x", loc);
 				probes++;
-				struct ri ri = map->peekinfo(loc);
+				struct ribase ri = map->peekinfo(loc);
 				int err = ri.remove(key, len, hash);
 				if (!err) {
 					trace("delete %i/%i, big = %i", loc, len, ri.big());
@@ -1373,7 +1371,9 @@ int test(int argc, const char *argv[])
 	if (fd == -1)
 		errno_exit(1);
 
-	struct keymap sm{head, fd};
+	struct ribase sink = {NULL, power2(head.blockbits), keymap::reclen_default};
+	struct ribase peek = {NULL, power2(head.blockbits), keymap::reclen_default};
+	struct keymap sm{head, sink, peek, fd};
 
 	enum {samesize = 0, maxkey = 255};
 	u8 key[maxkey + (-maxkey & 7)];
@@ -1487,7 +1487,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct ri ri = sm.peekinfo(loc);
+				struct ribase ri = sm.peekinfo(loc);
 				ri.walk(actor, &context);
 			}
 		}
@@ -1496,7 +1496,7 @@ int test(int argc, const char *argv[])
 
 	if (0) {
 		int fd = open("foo", O_CREAT|O_RDWR, 0644);
-		struct keymap map{head, fd, 6};
+		struct keymap map{head, sink, peek, fd, 6};
 		u8 data[map.reclen] = {};
 		map.insert("foo", 3, data);
 		map.dump(4);
@@ -1595,7 +1595,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct ri ri = loc == sm.path[0].map.loc ? sm.sinkinfo() : sm.peekinfo(loc);
+				struct ribase ri = loc == sm.path[0].map.loc ? sm.sinkinfo() : sm.peekinfo(loc);
 				ri.walk(actor, &context);
 			}
 		}
@@ -1604,7 +1604,7 @@ int test(int argc, const char *argv[])
 
 	if (0) {
 		int fd = open("foo", O_CREAT|O_RDWR, 0644);
-		struct keymap map{head, fd, 6};
+		struct keymap map{head, sink, peek, fd, 6};
 		u8 data[map.reclen] = {};
 		map.insert("foo", 3, data);
 		map.dump(4);
