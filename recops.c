@@ -84,7 +84,7 @@ bool rb_check(struct recinfo *ri)
 	struct rb *rb = rbirec(ri, &rec);
 	unsigned scan_entry_count = 0, scan_hole_count = 0, scan_hole_space = 0, scan_entry_space = 0;
 	unsigned count = rb->count;
-	unsigned max_entries = (rb->size - header_size) / (ri->reclen + tabent_size + 1);
+	unsigned max_entries = (rb->size - sizeof(struct rb)) / (ri->reclen + tabent_size + 1);
 	unsigned errs = 0;
 
 	if (count > max_entries && ++errs) {

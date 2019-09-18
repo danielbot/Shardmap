@@ -1,6 +1,8 @@
-struct tabent { u8 hash; u8 len; };
+/* record block format */
 
-struct rb // record block format
+struct tabent { u8 hash; u8 len; }; /* record table entry */
+
+struct rb
 {
 	u16 size; /* blocksize */
 	u16 used; /* entry headers and key text stored compactly at top of block */
@@ -11,7 +13,7 @@ struct rb // record block format
 	struct tabent table[];
 };
 
-enum {tabent_size = sizeof(struct tabent), header_size = sizeof(struct rb)};
+enum {tabent_size = sizeof(struct tabent)};
 enum {cleanup = 0, cleaned = 0xee, deleted = 0xdd, holecode = 0xff, maxname = 255};
 
 static u8 rb_hash(u16 ihash) { return ihash % 255; }
