@@ -481,14 +481,17 @@ unsigned calc_sigbits(const unsigned tablebits, const fixed8 loadfactor, const u
 
 static unsigned mapid = 1; // could be different every run, is that ok??
 
-keymap::keymap(struct header &header, struct ribase &sinkbh, struct ribase &peekbh, const int fd, unsigned reclen) :
+keymap::keymap(struct header &header, const int fd, unsigned reclen) :
 	bigmap(), // unfortunately impossible to initialize bigmap members here
 	map(0), tiers({{header, header.upper}, {header, header.lower}}),
 	tablebits(header.tablebits),
 	shards(power2(upper->mapbits)), pending(0),
 	loadfactor(header.loadfactor),
 	peek({NULL, -1}),
-	header(header), sinkbh(sinkbh), peekbh(peekbh), fd(fd), id(mapid++)
+	header(header),
+	sinkbh{NULL, power2(header.blockbits), reclen},
+	peekbh{NULL, power2(header.blockbits), reclen},
+	fd(fd), id(mapid++)
 {
 	printf("upper mapbits %u stridebits %u locbits %u sigbits %u\n",
 		upper->mapbits, upper->stridebits, upper->locbits, upper->sigbits);
@@ -1371,9 +1374,7 @@ int test(int argc, const char *argv[])
 	if (fd == -1)
 		errno_exit(1);
 
-	struct ribase sink = {NULL, power2(head.blockbits), keymap::reclen_default};
-	struct ribase peek = {NULL, power2(head.blockbits), keymap::reclen_default};
-	struct keymap sm{head, sink, peek, fd};
+	struct keymap sm{head, fd};
 
 	enum {samesize = 0, maxkey = 255};
 	u8 key[maxkey + (-maxkey & 7)];
@@ -1496,7 +1497,7 @@ int test(int argc, const char *argv[])
 
 	if (0) {
 		int fd = open("foo", O_CREAT|O_RDWR, 0644);
-		struct keymap map{head, sink, peek, fd, 6};
+		struct keymap map{head, fd, 6};
 		u8 data[map.reclen] = {};
 		map.insert("foo", 3, data);
 		map.dump(4);
@@ -1604,7 +1605,7 @@ int test(int argc, const char *argv[])
 
 	if (0) {
 		int fd = open("foo", O_CREAT|O_RDWR, 0644);
-		struct keymap map{head, sink, peek, fd, 6};
+		struct keymap map{head, fd, 6};
 		u8 data[map.reclen] = {};
 		map.insert("foo", 3, data);
 		map.dump(4);
