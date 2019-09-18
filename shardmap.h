@@ -164,22 +164,6 @@ struct recops testops = {
 struct ribase : recinfo
 {
 	ribase(void *data, unsigned size, unsigned reclen);
-	ribase(const ribase &ri); // copy constructor
-	virtual struct rb *irb(struct recinfo *ri) { assert(0); return 0; }
-	virtual struct rb *irbrec(struct recinfo *ri, rec_t **rec) { assert(0); return 0; }
-	virtual unsigned rb_gap(struct recinfo *ri, struct rb *rb) { assert(0); return 0; }
-public:
-	virtual void init(struct recinfo *ri) { assert(0); }
-	virtual int big(struct recinfo *ri) { assert(0); return 0; }
-	virtual int more(struct recinfo *ri) { assert(0); return 0; }
-	virtual void dump(struct recinfo *ri) { assert(0); }
-	virtual void *key(struct recinfo *ri, unsigned which, unsigned *ret) { assert(0); return 0; }
-	virtual bool check(struct recinfo *ri) { assert(0); return 0; }
-	virtual rec_t *lookup(struct recinfo *ri, const void *key, u8 len, u16 lowhash) { assert(0); return 0; }
-	virtual rec_t *varlookup(struct recinfo *ri, const void *key, u8 len, u16 lowhash, u8 *varlen) { assert(0); return 0; }
-	virtual rec_t *create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen = 0) { assert(0); return 0; }
-	virtual int remove(struct recinfo *ri, const void *key, u8 len, u16 lowhash) { assert(0); return 0; }
-	virtual int walk(struct recinfo *ri, rb_walk_fn fn, void *context) { assert(0); return 0; }
 };
 
 #ifndef SIDELOG

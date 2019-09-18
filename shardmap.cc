@@ -1071,7 +1071,7 @@ void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm)
 
 unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm)
 {
-	struct ri ri = {dm->data, map->blocksize, map->reclen};
+	struct ribase ri = {dm->data, map->blocksize, map->reclen};
 	return cfixops::testops.big(&ri);
 }
 
