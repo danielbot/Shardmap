@@ -161,11 +161,6 @@ struct recops testops = {
 
 }
 
-struct ribase : recinfo
-{
-	ribase(void *data, unsigned size, unsigned reclen);
-};
-
 #ifndef SIDELOG
 #define SIDELOG
 #endif
@@ -181,8 +176,8 @@ struct keymap : bigmap
 	float loadfactor; // working as intended but obscure in places
 	struct datamap peek; // for lookups
 	struct header &header;
-	struct ribase sinkbh;
-	struct ribase peekbh;
+	struct recinfo sinkbh;
+	struct recinfo peekbh;
 //	struct datamap header; // sm header including map geometry
 	int fd;
 	unsigned id;
@@ -215,8 +210,8 @@ struct keymap : bigmap
 	struct shard **mapalloc();
 	~keymap();
 
-	struct ribase &sinkinfo();
-	struct ribase &peekinfo(loc_t loc);
+	struct recinfo &sinkinfo();
+	struct recinfo &peekinfo(loc_t loc);
 	void spam(struct shard *shard);
 	void spam(struct shard *shard_or_null, unsigned ix, unsigned shift);
 	void dump(unsigned flags = 1);

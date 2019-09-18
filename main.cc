@@ -17,7 +17,6 @@ extern "C" {
 #define trace trace_off
 
 #include "shardmap.h"
-#include "recops.cc"
 
 #include <type_traits> // is_pod
 extern "C" {

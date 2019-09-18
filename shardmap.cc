@@ -27,7 +27,6 @@ extern "C" {
 #define warn trace_on
 
 #include "shardmap.h"
-#include "recops.cc"
 
 void errno_exit(unsigned exitcode);
 void error_exit(unsigned exitcode, const char *reason, ...);
@@ -489,8 +488,8 @@ keymap::keymap(struct header &header, const int fd, unsigned reclen) :
 	loadfactor(header.loadfactor),
 	peek({NULL, -1}),
 	header(header),
-	sinkbh{NULL, power2(header.blockbits), reclen},
-	peekbh{NULL, power2(header.blockbits), reclen},
+	sinkbh{power2(header.blockbits), reclen},
+	peekbh{power2(header.blockbits), reclen},
 	fd(fd), id(mapid++)
 {
 	printf("upper mapbits %u stridebits %u locbits %u sigbits %u\n",
@@ -552,13 +551,13 @@ keymap::~keymap()
 	free(map);
 }
 
-struct ribase &keymap::sinkinfo()
+struct recinfo &keymap::sinkinfo()
 {
 	sinkbh.data = path[0].map.data; // would like to get rid of this assignment
 	return sinkbh; // maybe by using struct ri directly in path[] and losing datamap
 }
 
-struct ribase &keymap::peekinfo(loc_t loc)
+struct recinfo &keymap::peekinfo(loc_t loc)
 {
 	if (loc == path[0].map.loc)
 		return sinkinfo();
@@ -950,7 +949,7 @@ rec_t *shard::lookup(const void *key, unsigned len, hashkey_t hash)
 				loc_t loc = trio.second(entry);
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
-				struct ribase &ri = map->peekinfo(loc);
+				struct recinfo &ri = map->peekinfo(loc);
 				rec_t *rec = cfixops::testops.lookup((struct recinfo *)&ri, key, len, hash);
 				if (rec)
 					return rec;
@@ -1074,7 +1073,7 @@ void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm)
 
 unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm)
 {
-	struct ribase ri = {dm->data, map->blocksize, map->reclen};
+	struct recinfo ri = {map->blocksize, map->reclen, dm->data};
 	return cfixops::testops.big(&ri);
 }
 
@@ -1242,7 +1241,7 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 	}
 
 	while (1) {
-		struct ribase &ri = sinkinfo();
+		struct recinfo &ri = sinkinfo();
 		if (verify)
 			assert(!cfixops::testops.check(&ri));
 //		rec_t *rec = cfixops::testops.create(&ri, key, keylen, hash, newrec);
@@ -1320,7 +1319,7 @@ int shard::remove(const void *key, unsigned len, hashkey_t hash)
 				loc = trio.second(entry);
 				trace("probe block %x", loc);
 				probes++;
-				struct ribase ri = map->peekinfo(loc);
+				struct recinfo ri = map->peekinfo(loc);
 				int err = cfixops::testops.remove(&ri, key, len, hash);
 				if (!err) {
 					trace("delete %i/%i, big = %i", loc, len, cfixops::testops.big());
@@ -1488,7 +1487,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct ribase ri = sm.peekinfo(loc);
+				struct recinfo ri = sm.peekinfo(loc);
 				cfixops::testops.walk(&ri, actor, &context);
 			}
 		}
@@ -1596,7 +1595,7 @@ int test(int argc, const char *argv[])
 		for (loc_t loc = 0; loc < sm.blocks; loc++) {
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
-				struct ribase ri = loc == sm.path[0].map.loc ? sm.sinkinfo() : sm.peekinfo(loc);
+				struct recinfo ri = loc == sm.path[0].map.loc ? sm.sinkinfo() : sm.peekinfo(loc);
 				cfixops::testops.walk(&ri, actor, &context);
 			}
 		}

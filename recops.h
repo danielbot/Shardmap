@@ -17,7 +17,6 @@ enum {cleanup = 0, cleaned = 0xee, deleted = 0xdd, holecode = 0xff, maxname = 25
 static u8 rb_hash(u16 ihash) { return ihash % 255; }
 
 struct recops {
-	/* Exports */
 	void (*init)(struct recinfo *ri);
 	int (*big)(struct recinfo *ri);
 	int (*more)(struct recinfo *ri);
