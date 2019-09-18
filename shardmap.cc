@@ -507,7 +507,7 @@ keymap::keymap(struct header &header, struct ribase &sinkbh, struct ribase &peek
 		path[0].map = (struct datamap){.data = frontbuf};
 		maxblocks = layout.map[map_rbspace].size >> blockbits;
 		add_new_rec_block(this);
-		sinkinfo().init(&sinkinfo());
+		cfixops::testops.init(&sinkinfo());
 		log_clear(microlog);
 	}
 
@@ -948,7 +948,7 @@ rec_t *shard::lookup(const void *key, unsigned len, hashkey_t hash)
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
 				struct ribase &ri = map->peekinfo(loc);
-				rec_t *rec = ri.lookup(&ri, key, len, hash);
+				rec_t *rec = cfixops::testops.lookup((struct recinfo *)&ri, key, len, hash);
 				if (rec)
 					return rec;
 			}
@@ -1072,7 +1072,7 @@ void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm)
 unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm)
 {
 	struct ri ri = {dm->data, map->blocksize, map->reclen};
-	return ri.big(&ri);
+	return cfixops::testops.big(&ri);
 }
 
 /* High level db ops */
@@ -1241,8 +1241,9 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 	while (1) {
 		struct ribase &ri = sinkinfo();
 		if (verify)
-			assert(!ri.check(&ri));
-		rec_t *rec = ri.create(&ri, key, keylen, hash, newrec);
+			assert(!cfixops::testops.check(&ri));
+//		rec_t *rec = cfixops::testops.create(&ri, key, keylen, hash, newrec);
+		rec_t *rec = (cfixops::testops.create)(&ri, key, keylen, hash, newrec, 0);
 		if (!is_errcode(rec)) {
 			loc_t loc = path[0].map.loc;
 			/*
@@ -1279,10 +1280,10 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 		}
 
 		if (0)
-			ri.dump(&ri);
+			cfixops::testops.dump(&ri);
 
 		assert(errcode(rec) == -ENOSPC);
-//		trace("block full (%i of %i)", blocksize - ri.free(), blocksize);
+//		trace("block full (%i of %i)", blocksize - cfixops::testops.free(), blocksize);
 		trace("block full");
 
 		if (burst()) {
@@ -1290,7 +1291,7 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 			unify();
 		}
 
-		if (bigmap_try(this, keylen, ri.big(&ri)) == 1)
+		if (bigmap_try(this, keylen, cfixops::testops.big(&ri)) == 1)
 			sinkinfo().init(&ri);
 	}
 }
@@ -1317,12 +1318,12 @@ int shard::remove(const void *key, unsigned len, hashkey_t hash)
 				trace("probe block %x", loc);
 				probes++;
 				struct ribase ri = map->peekinfo(loc);
-				int err = ri.remove(&ri, key, len, hash);
+				int err = cfixops::testops.remove(&ri, key, len, hash);
 				if (!err) {
-					trace("delete %i/%i, big = %i", loc, len, ri.big());
+					trace("delete %i/%i, big = %i", loc, len, cfixops::testops.big());
 					if (remove(hash, loc) == -ENOENT)
 						break;
-					bigmap_free(map, loc, ri.big(&ri));
+					bigmap_free(map, loc, cfixops::testops.big(&ri));
 					goto logging;
 				}
 			}
@@ -1487,7 +1488,7 @@ int test(int argc, const char *argv[])
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
 				struct ribase ri = sm.peekinfo(loc);
-				ri.walk(&ri, actor, &context);
+				cfixops::testops.walk(&ri, actor, &context);
 			}
 		}
 		trace_on("found %i entries", context.count);
@@ -1595,7 +1596,7 @@ int test(int argc, const char *argv[])
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
 				struct ribase ri = loc == sm.path[0].map.loc ? sm.sinkinfo() : sm.peekinfo(loc);
-				ri.walk(&ri, actor, &context);
+				cfixops::testops.walk(&ri, actor, &context);
 			}
 		}
 		trace_on("found %i entries", context.count);

@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-optbase=-fPIC -Wno-sign-compare -Wno-address-of-packed-member
+optbase=-fPIC -Wno-sign-compare # -Wno-address-of-packed-member
 
 opt=-O3 $(optbase)
 
@@ -13,7 +13,7 @@ obj = utility.o pmem.o bigmap.o options.o shardmap.o
 all: shardmap bigmap.o
 	@: # quiet make when nothing to do
 
-shardmap: Makefile debug.h shardmap.h main.cc shardmap.so
+shardmap: Makefile debug.h shardmap.h recops.h recops.c main.cc shardmap.so
 	g++ $(opt) -Wall -Wno-unused-function -Wno-narrowing main.cc ./shardmap.so -lbacktrace -oshardmap
 
 shardmap.so: Makefile $(obj)

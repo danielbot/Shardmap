@@ -140,7 +140,27 @@ protected: // disallow stack instance because of self destruct
 struct recinfo { const unsigned blocksize, reclen; u8 *data; loc_t loc; };
 typedef void (rb_walk_fn)(void *context, u8 *key, unsigned keylen, u8 *data, unsigned reclen);
 
+namespace cfixops {
+
 #include "recops.h"
+#include "recops.c"
+
+struct recops testops = {
+	.gap = rb_gap,
+	.init = rb_init,
+	.big = rb_big,
+	.more = rb_more,
+	.dump = rb_dump,
+	.key = rb_key,
+	.check = rb_check,
+	.lookup = rb_lookup,
+	.varlookup = rb_varlookup,
+	.create = rb_create,
+	.remove = rb_remove,
+	.walk = rb_walk,
+};
+
+}
 
 struct ribase : recinfo
 {
