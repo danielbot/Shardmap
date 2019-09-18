@@ -31,5 +31,3 @@ struct recops {
 	int (*remove)(struct recinfo *ri, const void *key, u8 len, u16 lowhash);
 	int (*walk)(struct recinfo *ri, rb_walk_fn fn, void *context);
 };
-
-enum {taglen = 0}; // optional one byte variable data borrowed from key

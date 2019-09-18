@@ -141,11 +141,14 @@ struct recinfo { const unsigned blocksize, reclen; u8 *data; loc_t loc; };
 
 typedef void (rb_walk_fn)(void *context, u8 *key, unsigned keylen, u8 *data, unsigned reclen);
 
-namespace cfixops {
-	#include "recops.h"
+#include "recops.h"
+
+namespace fixsize {
+	enum {taglen = 0}; // optional one byte variable data borrowed from key
+
 	#include "recops.c"
 
-	struct recops testops = {
+	struct recops recops = {
 		.init = rb_init,
 		.big = rb_big,
 		.more = rb_more,
