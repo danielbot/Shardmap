@@ -146,7 +146,6 @@ namespace cfixops {
 #include "recops.c"
 
 struct recops testops = {
-	.gap = rb_gap,
 	.init = rb_init,
 	.big = rb_big,
 	.more = rb_more,
