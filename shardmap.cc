@@ -1292,7 +1292,7 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 		}
 
 		if (bigmap_try(this, keylen, cfixops::testops.big(&ri)) == 1)
-			sinkinfo().init(&ri);
+			cfixops::testops.init(&ri);
 	}
 }
 

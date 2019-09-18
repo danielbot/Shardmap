@@ -376,14 +376,14 @@ int tpcb_run(int fds[5], unsigned scalefactor, unsigned iterations)
 	/*
 	 * One kvs table per file
 	 */
-	struct ri sink1 = {NULL, power2(head.blockbits), 100};
-	struct ri peek1 = {NULL, power2(head.blockbits), 100};
-	struct ri sink2 = {NULL, power2(head.blockbits), 100};
-	struct ri peek2 = {NULL, power2(head.blockbits), 100};
-	struct ri sink3 = {NULL, power2(head.blockbits), 100};
-	struct ri peek3 = {NULL, power2(head.blockbits), 100};
-	struct ri sink4 = {NULL, power2(head.blockbits), 50};
-	struct ri peek4 = {NULL, power2(head.blockbits), 50};
+	struct ribase sink1 = {NULL, power2(head.blockbits), 100};
+	struct ribase peek1 = {NULL, power2(head.blockbits), 100};
+	struct ribase sink2 = {NULL, power2(head.blockbits), 100};
+	struct ribase peek2 = {NULL, power2(head.blockbits), 100};
+	struct ribase sink3 = {NULL, power2(head.blockbits), 100};
+	struct ribase peek3 = {NULL, power2(head.blockbits), 100};
+	struct ribase sink4 = {NULL, power2(head.blockbits), 50};
+	struct ribase peek4 = {NULL, power2(head.blockbits), 50};
 	trace("branches...");
 	struct keymap branches{head, sink1, peek1, fds[1], 100};
 	trace("accounts...");
