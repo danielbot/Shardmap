@@ -166,7 +166,7 @@ rec_t *varlookup(struct recinfo *ri, const void *key, u8 len, u16 lowhash, u8 *v
 	return rec;
 }
 
-rec_t *create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen)
+rec_t *create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen = 0)
 {
 	struct rb *rb = irb(ri);
 	unsigned gap = rb_gap(ri, rb), last = rb->count - 1, pos = last;
@@ -317,11 +317,6 @@ create:
 	if (taglen)
 		rec[0] = varlen;
 	return rec;
-}
-
-rec_t *create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash, const void *newrec)
-{
-	return create(this, newkey, newlen, lowhash, newrec, 0);
 }
 
 int remove(struct recinfo *ri, const void *key, u8 len, u16 lowhash)

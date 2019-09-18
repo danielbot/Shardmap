@@ -158,8 +158,7 @@ public:
 	virtual bool check(struct recinfo *ri) { assert(0); return 0; }
 	virtual rec_t *lookup(struct recinfo *ri, const void *key, u8 len, u16 lowhash) { assert(0); return 0; }
 	virtual rec_t *varlookup(struct recinfo *ri, const void *key, u8 len, u16 lowhash, u8 *varlen) { assert(0); return 0; }
-	virtual rec_t *create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen) { assert(0); return 0; }
-	virtual rec_t *create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash, const void *newrec) { assert(0); return 0; }
+	virtual rec_t *create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen = 0) { assert(0); return 0; }
 	virtual int remove(struct recinfo *ri, const void *key, u8 len, u16 lowhash) { assert(0); return 0; }
 	virtual int walk(struct recinfo *ri, rb_walk_fn fn, void *context) { assert(0); return 0; }
 };
