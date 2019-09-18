@@ -16,9 +16,6 @@ extern "C" {
 
 #define trace trace_off
 
-struct recinfo { const unsigned blocksize, reclen; u8 *data; loc_t loc; };
-typedef void (rb_walk_fn)(void *context, u8 *key, unsigned keylen, u8 *data, unsigned reclen);
-
 #include "shardmap.h"
 #include "recops.cc"
 
