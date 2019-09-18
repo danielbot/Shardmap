@@ -480,7 +480,7 @@ unsigned calc_sigbits(const unsigned tablebits, const fixed8 loadfactor, const u
 
 static unsigned mapid = 1; // could be different every run, is that ok??
 
-keymap::keymap(struct header &header, const int fd, unsigned reclen) :
+keymap::keymap(struct header &header, const int fd, struct recops &recops, unsigned reclen) :
 	bigmap(), // unfortunately impossible to initialize bigmap members here
 	map(0), tiers({{header, header.upper}, {header, header.lower}}),
 	tablebits(header.tablebits),
@@ -488,8 +488,9 @@ keymap::keymap(struct header &header, const int fd, unsigned reclen) :
 	loadfactor(header.loadfactor),
 	peek({NULL, -1}),
 	header(header),
-	sinkbh{power2(header.blockbits), reclen},
-	peekbh{power2(header.blockbits), reclen},
+	recops(recops),
+	sinkbh{power2(header.blockbits), reclen, 0, 0, this},
+	peekbh{power2(header.blockbits), reclen, 0, 0, this},
 	fd(fd), id(mapid++)
 {
 	printf("upper mapbits %u stridebits %u locbits %u sigbits %u\n",
@@ -509,7 +510,7 @@ keymap::keymap(struct header &header, const int fd, unsigned reclen) :
 		path[0].map = (struct datamap){.data = frontbuf};
 		maxblocks = layout.map[map_rbspace].size >> blockbits;
 		add_new_rec_block(this);
-		fixsize::recops.init(&sinkinfo());
+		recops.init(&sinkinfo());
 		log_clear(microlog);
 	}
 
@@ -950,7 +951,7 @@ rec_t *shard::lookup(const void *key, unsigned len, hashkey_t hash)
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
 				struct recinfo &ri = map->peekinfo(loc);
-				rec_t *rec = fixsize::recops.lookup((struct recinfo *)&ri, key, len, hash);
+				rec_t *rec = map->recops.lookup((struct recinfo *)&ri, key, len, hash);
 				if (rec)
 					return rec;
 			}
@@ -1074,7 +1075,7 @@ void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm)
 unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm)
 {
 	struct recinfo ri = {map->blocksize, map->reclen, dm->data};
-	return fixsize::recops.big(&ri);
+	return ri.map->recops.big(&ri);
 }
 
 /* High level db ops */
@@ -1243,8 +1244,8 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 	while (1) {
 		struct recinfo &ri = sinkinfo();
 		if (verify)
-			assert(!fixsize::recops.check(&ri));
-		rec_t *rec = (fixsize::recops.create)(&ri, key, keylen, hash, newrec, 0);
+			assert(!recops.check(&ri));
+		rec_t *rec = (recops.create)(&ri, key, keylen, hash, newrec, 0);
 		if (!is_errcode(rec)) {
 			loc_t loc = path[0].map.loc;
 			/*
@@ -1281,10 +1282,10 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 		}
 
 		if (0)
-			fixsize::recops.dump(&ri);
+			recops.dump(&ri);
 
 		assert(errcode(rec) == -ENOSPC);
-//		trace("block full (%i of %i)", blocksize - fixsize::recops.free(), blocksize);
+//		trace("block full (%i of %i)", blocksize - recops.free(), blocksize);
 		trace("block full");
 
 		if (burst()) {
@@ -1292,8 +1293,8 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 			unify();
 		}
 
-		if (bigmap_try(this, keylen, fixsize::recops.big(&ri)) == 1)
-			fixsize::recops.init(&ri);
+		if (bigmap_try(this, keylen, recops.big(&ri)) == 1)
+			recops.init(&ri);
 	}
 }
 
@@ -1319,12 +1320,12 @@ int shard::remove(const void *key, unsigned len, hashkey_t hash)
 				trace("probe block %x", loc);
 				probes++;
 				struct recinfo ri = map->peekinfo(loc);
-				int err = fixsize::recops.remove(&ri, key, len, hash);
+				int err = map->recops.remove(&ri, key, len, hash);
 				if (!err) {
-					trace("delete %i/%i, big = %i", loc, len, fixsize::recops.big());
+					trace("delete %i/%i, big = %i", loc, len, recops.big());
 					if (remove(hash, loc) == -ENOENT)
 						break;
-					bigmap_free(map, loc, fixsize::recops.big(&ri));
+					bigmap_free(map, loc, map->recops.big(&ri));
 					goto logging;
 				}
 			}
@@ -1372,7 +1373,7 @@ int test(int argc, const char *argv[])
 	if (fd == -1)
 		errno_exit(1);
 
-	struct keymap sm{head, fd};
+	struct keymap sm{head, fd, fixsize::recops};
 
 	enum {samesize = 0, maxkey = 255};
 	u8 key[maxkey + (-maxkey & 7)];
@@ -1487,7 +1488,7 @@ int test(int argc, const char *argv[])
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
 				struct recinfo ri = sm.peekinfo(loc);
-				fixsize::recops.walk(&ri, actor, &context);
+				sm.recops.walk(&ri, actor, &context);
 			}
 		}
 		trace_on("found %i entries", context.count);
@@ -1495,7 +1496,7 @@ int test(int argc, const char *argv[])
 
 	if (0) {
 		int fd = open("foo", O_CREAT|O_RDWR, 0644);
-		struct keymap map{head, fd, 6};
+		struct keymap map{head, fd, fixsize::recops, 6};
 		u8 data[map.reclen] = {};
 		map.insert("foo", 3, data);
 		map.dump(4);
@@ -1595,7 +1596,7 @@ int test(int argc, const char *argv[])
 			if (!is_maploc(loc, sm.blockbits)) {
 				trace_off("block %i", loc);
 				struct recinfo ri = loc == sm.path[0].map.loc ? sm.sinkinfo() : sm.peekinfo(loc);
-				fixsize::recops.walk(&ri, actor, &context);
+				sm.recops.walk(&ri, actor, &context);
 			}
 		}
 		trace_on("found %i entries", context.count);
@@ -1603,7 +1604,7 @@ int test(int argc, const char *argv[])
 
 	if (0) {
 		int fd = open("foo", O_CREAT|O_RDWR, 0644);
-		struct keymap map{head, fd, 6};
+		struct keymap map{head, fd, fixsize::recops, 6};
 		u8 data[map.reclen] = {};
 		map.insert("foo", 3, data);
 		map.dump(4);

@@ -137,7 +137,7 @@ protected: // disallow stack instance because of self destruct
 	friend class keymap; // allow delete
 };
 
-struct recinfo { const unsigned blocksize, reclen; u8 *data; loc_t loc; };
+struct recinfo { const unsigned blocksize, reclen; u8 *data; loc_t loc; struct keymap *map;};
 
 typedef void (rb_walk_fn)(void *context, u8 *key, unsigned keylen, u8 *data, unsigned reclen);
 
@@ -178,6 +178,7 @@ struct keymap : bigmap
 	float loadfactor; // working as intended but obscure in places
 	struct datamap peek; // for lookups
 	struct header &header;
+	const struct recops &recops;
 	struct recinfo sinkbh;
 	struct recinfo peekbh;
 //	struct datamap header; // sm header including map geometry
@@ -206,7 +207,7 @@ struct keymap : bigmap
 
 	enum {reclen_default = 100};
 
-	keymap(struct header &header, const int fd, unsigned reclen = reclen_default);
+	keymap(struct header &header, const int fd, struct recops &recops, unsigned reclen = reclen_default);
 
 	struct shard *new_shard(const struct tier *tier, unsigned i, unsigned tablebits, bool virgin = 1);
 	struct shard **mapalloc();
