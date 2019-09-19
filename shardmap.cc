@@ -28,6 +28,24 @@ extern "C" {
 
 #include "shardmap.h"
 
+namespace fixsize {
+	#include "recops.c"
+
+	struct recops recops = {
+		.init = rb_init,
+		.big = rb_big,
+		.more = rb_more,
+		.dump = rb_dump,
+		.key = rb_key,
+		.check = rb_check,
+		.lookup = rb_lookup,
+		.varlookup = rb_varlookup,
+		.create = rb_create,
+		.remove = rb_remove,
+		.walk = rb_walk,
+	};
+}
+
 void errno_exit(unsigned exitcode);
 void error_exit(unsigned exitcode, const char *reason, ...);
 void hexdump(const void *data, unsigned size);

@@ -166,7 +166,7 @@ rec_t *rb_varlookup(struct recinfo *ri, const void *key, u8 len, u16 lowhash, u8
 	return rec;
 }
 
-rec_t *rb_create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen = 0)
+rec_t *rb_create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash, const void *newrec, u8 varlen)
 {
 	struct rb *rb = rbi(ri);
 	unsigned gap = rb_gap(ri, rb), last = rb->count - 1, pos = last;
