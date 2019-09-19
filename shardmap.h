@@ -4,13 +4,13 @@
  * License: GPL v3
  */
 
-/* Should these generic things really be here? ... */
+/* Should these generic things really be here? ... no, only the standard headers */
 
-#include <vector> // needed by shardmap.h
+#include <vector>
 #include <functional> // to pass lambdas to bucket walkers
 
 extern "C" {
-#include "pmem.h" // for sidelog
+#include "pmem.h" // for sidelog... don't expose this!
 #include "bigmap.h" // C style base class for keymap
 }
 

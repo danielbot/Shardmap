@@ -4,12 +4,6 @@
  * License: GPL v3
  */
 
-extern "C" {
-#include "size.h"
-#include "debug.h"
-#include "utility.h"
-}
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -19,6 +13,12 @@ extern "C" {
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <errno.h>
+
+extern "C" {
+#include "size.h"
+#include "debug.h"
+#include "utility.h"
+}
 
 #define tracedump_on hexdump
 #define tracedump trace_off
