@@ -149,7 +149,7 @@ rec_t *rb_lookup(struct recinfo *ri, const void *key, u8 len, u16 lowhash)
 		unsigned keylen = rb->table[i].len;
 		rec = rec - (ri->reclen + keylen);
 		unsigned varlen = taglen ? rec[0] : 0;
-		trace("hash %x %x len %u", hash, rb->table[i].hash, len);
+		trace_off("hash %x %x len %u", hash, rb->table[i].hash, len);
 		if (rb->table[i].hash == hash && keylen == len) {
 			if (!memcmp(key, rec + ri->reclen + varlen, keylen - varlen))
 				return rec + taglen;
@@ -234,7 +234,7 @@ rec_t *rb_create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash,
 		if (movedown < 0)
 			movedown = 0;
 		rb->used += movedown; /* decrease gap */
-		trace("movedown = %i pos = %i need = %i gap = %i", movedown, pos, need, rb_gap(rb));
+		trace("movedown = %i pos = %i need = %i gap = %i", movedown, pos, need, rb_gap(ri, rb));
 		rec = last_re;
 		pos = last;
 
@@ -298,7 +298,7 @@ rec_t *rb_create(struct recinfo *ri, const void *newkey, u8 newlen, u16 lowhash,
 			rb->used -= moveup; /* increase gap */
 		}
 
-		trace("gap = %u", rb_gap(rb));
+		trace("gap = %u", rb_gap(ri, rb));
 		trace("old len = %u", rb->table[use_entry].len);
 		rec = use_re;
 		pos = use_entry;

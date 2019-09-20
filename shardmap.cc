@@ -20,11 +20,11 @@ extern "C" {
 #include "utility.h"
 }
 
+#define warn trace_on
 #define tracedump_on hexdump
 #define tracedump trace_off
 #define trace_geom trace_on
-#define trace trace_off
-#define warn trace_on
+#define trace trace_on
 
 #include "shardmap.h"
 
@@ -1167,8 +1167,10 @@ void keymap::checklog(unsigned flags = 1)
 	bebug++;
 	return;
 
+#ifdef SIDELOG
 corrupt:
 	error_exit(1, "%u: log corrupt", bebug);
+#endif
 }
 
 int keymap::unify()
@@ -1196,18 +1198,15 @@ int keymap::unify()
 		struct insert_logent entry;
 		log_read(&block, log, i);
 		memcpy(&entry, &block, sizeof entry); // stupid or not, strict aliasing requires this!
+		hashkey_t hash;
+		loc_t loc;
+		tiers[entry.ix].duo.unpack(entry.duo, hash, loc);
 
-		trace("%i: '%s' => %i:%u %.16lx @%i",
-			(i - head) & logmask,
-			cprinz(&block + sizeof entry, entry.head.len),
-			entry.head.type,
-			(unsigned)entry.head.duo,
-			entry.hash,
-			entry.at);
-
-		trace("entry.at %i shardcells %i", entry.at, shardcells);
+//		trace("%i: '%s' => %i:%u %.16lx @%i", i,
+//			cprinz(&block + sizeof entry, entry.head.len),
+		trace("%i: %.16lx @%i", i, hash, entry.at);
 		if (1)
-			tiers[0].store(entry.ix, entry.at, entry.duo); // Wrong for lower tier, fixme!
+			tiers[entry.ix].store(entry.ix, entry.at, entry.duo);
 		if (0)
 			hexdump(&entry, linesize);
 #endif
@@ -1340,7 +1339,7 @@ int shard::remove(const void *key, unsigned len, hashkey_t hash)
 				struct recinfo ri = map->peekinfo(loc);
 				int err = map->recops.remove(&ri, key, len, hash);
 				if (!err) {
-					trace("delete %i/%i, big = %i", loc, len, recops.big());
+					trace("delete %i/%i, big = %i", loc, len, map->recops.big(&ri));
 					if (remove(hash, loc) == -ENOENT)
 						break;
 					bigmap_free(map, loc, map->recops.big(&ri));
