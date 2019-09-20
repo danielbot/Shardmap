@@ -5,7 +5,7 @@ optbase=-fPIC -Wno-sign-compare # -Wno-address-of-packed-member
 opt=-O3 $(optbase)
 
 ifdef DEBUG
-opt=-g -O0 $(optbase)
+opt=-g -O0 -DDEBUG $(optbase)
 endif
 
 obj = utility.o pmem.o bigmap.o options.o shardmap.o

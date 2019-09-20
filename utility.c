@@ -30,8 +30,9 @@ void error_exit(unsigned exitcode, const char *reason, ...)
 	vfprintf(stderr, reason, arglist);
 	va_end(arglist);
 	fprintf(stderr, "!\n");
-	if (0)
-		BREAK;
+#ifdef DEBUG
+	BREAK;
+#endif
 	exit(exitcode);
 }
 
