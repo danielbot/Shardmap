@@ -2,7 +2,7 @@ enum {bigmap_maxlevels = 10};
 
 struct datamap
 {
-	u8 *data;
+	uint8_t *data;
 	loc_t loc;
 };
 
@@ -12,12 +12,12 @@ struct bigmap
 	loc_t blocks, maxblocks;
 	struct level {
 		struct datamap map;
-		u16 start, at, wrap, big;
+		uint16_t start, at, wrap, big;
 	} path[bigmap_maxlevels];
 	bool partial_path;
-	u8 big;
-	u16 reclen; // this is only here because some ext_bigmap functions need it. Fix!!!
-	u8 *rbspace; // this is only here because we have not properly abstracted the block mapping yet!!!
+	uint8_t big;
+	uint16_t reclen; // this is only here because some ext_bigmap functions need it. Fix!!!
+	uint8_t *rbspace; // this is only here because we have not properly abstracted the block mapping yet!!!
 };
 
 /* Exports */
@@ -34,7 +34,7 @@ bool is_maploc(loc_t loc, unsigned blockbits);
 
 /* Imports */
 
-u8 *ext_bigmap_mem(struct bigmap *map, loc_t loc);
+uint8_t *ext_bigmap_mem(struct bigmap *map, loc_t loc);
 void ext_bigmap_map(struct bigmap *map, unsigned level, loc_t loc);
 void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm);
 unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm);

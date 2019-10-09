@@ -9,9 +9,7 @@ extern "C" {
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
-#include "size.h"
 #include "debug.h"
-#include "utility.h"
 }
 
 #include "shardmap.h"
@@ -20,6 +18,7 @@ extern "C" {
 extern "C" {
 #include <sys/ioctl.h> // terminal size awareness in help/usage
 #include "options.h"
+#include "utility.h"
 int uform(char *buf, int len, unsigned long n, unsigned base);
 }
 

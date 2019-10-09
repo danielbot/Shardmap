@@ -14,8 +14,9 @@
 #include <sys/mman.h>
 #include <errno.h>
 
+#include "shardmap.h"
+
 extern "C" {
-#include "size.h"
 #include "debug.h"
 #include "utility.h"
 }
@@ -24,9 +25,7 @@ extern "C" {
 #define tracedump_on hexdump
 #define tracedump trace_off
 #define trace_geom trace_on
-#define trace trace_on
-
-#include "shardmap.h"
+#define trace trace_off
 
 namespace fixsize {
 	#include "recops.c"

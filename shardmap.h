@@ -6,8 +6,18 @@
 
 /* Should these generic things really be here? ... no, only the standard headers */
 
-#include <vector>
+#include <stdint.h>
 #include <functional> // to pass lambdas to bucket walkers
+#include <vector>
+
+typedef uint64_t u64;
+typedef uint32_t u32;
+typedef uint32_t u16;
+typedef uint8_t u8;
+typedef uint8_t rec_t;
+typedef uint32_t loc_t;
+typedef unsigned fixed8;
+typedef int64_t s64;
 
 extern "C" {
 #include "pmem.h" // for sidelog... don't expose this!
@@ -50,7 +60,7 @@ template <class T1, class T2, class T3> struct tripack
 	void set_first(u64 &packed, const T1 field) const;
 };
 
-struct region { u64 size, align; void **mem; loff_t *pos; };
+struct region { u64 /* is this right? */ size, align; void **mem; loff_t *pos; };
 
 struct layout
 {
