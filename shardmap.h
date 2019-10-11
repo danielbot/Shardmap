@@ -153,10 +153,6 @@ typedef void (rb_walk_fn)(void *context, u8 *key, unsigned keylen, u8 *data, uns
 
 #include "recops.h"
 
-#ifndef SIDELOG
-#define SIDELOG
-#endif
-
 struct keymap : bigmap
 {
 	struct shard **map;
@@ -175,6 +171,7 @@ struct keymap : bigmap
 	int fd;
 	unsigned id;
 
+	void *Private;
 	struct pmblock *microlog, *upper_microlog;
 	loff_t microlog_pos;
 	loff_t rbspace_pos;
@@ -182,18 +179,6 @@ struct keymap : bigmap
 	unsigned loghead = 0, logtail = 0;
 
 	struct layout layout;
-
-#ifdef SIDELOG
-	struct sidelog
-	{
-		u64 duo;
-		u32 at;
-		u8 ix; // countmap index
-		u8 rx; // relative tier index
-		u8 flags;
-		u8 unused;
-	} sidelog[logsize];
-#endif
 
 	enum {reclen_default = 100};
 

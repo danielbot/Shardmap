@@ -27,6 +27,10 @@ extern "C" {
 #define trace_geom trace_on
 #define trace trace_off
 
+#ifndef SIDELOG
+#define SIDELOG
+#endif
+
 namespace fixsize {
 	#include "recops.c"
 
@@ -113,6 +117,22 @@ template <class T1, class T2, class T3> u64 tripack<T1, T2, T3>::third(const u64
 
 template <class T1, class T2, class T3> void tripack<T1, T2, T3>::set_first(u64 &packed, const T1 field) const
 { packed = (packed & ~(mask2 >> bits1)) | field; }
+
+/* Persistent memory */
+
+#ifdef SIDELOG
+struct sidelog
+{
+	u64 duo;
+	u32 at;
+	u8 ix; // countmap index
+	u8 rx; // relative tier index
+	u8 flags;
+	u8 unused;
+};
+
+enum {sidelog_size = logsize * sizeof(struct sidelog)};
+#endif
 
 /* Memory layout setup */
 
@@ -508,7 +528,7 @@ keymap::keymap(struct header &header, const int fd, struct recops &recops, unsig
 	recops(recops),
 	sinkbh{power2(header.blockbits), reclen, 0, 0, this},
 	peekbh{power2(header.blockbits), reclen, 0, 0, this},
-	fd(fd), id(mapid++)
+	fd(fd), id(mapid++), Private(0)
 {
 	printf("upper mapbits %u stridebits %u locbits %u sigbits %u\n",
 		upper->mapbits, upper->stridebits, upper->locbits, upper->sigbits);
@@ -529,6 +549,9 @@ keymap::keymap(struct header &header, const int fd, struct recops &recops, unsig
 		add_new_rec_block(this);
 		recops.init(&sinkinfo());
 		log_clear(microlog);
+#ifdef SIDELOG
+		Private = (struct sidelog *)calloc(1, sidelog_size);
+#endif
 	}
 
 	if (0)
@@ -567,6 +590,9 @@ keymap::~keymap()
 	tiers[0].cleanup();
 	tiers[1].cleanup();
 	free(map);
+#ifdef SIDELOG
+	free(Private);
+#endif
 }
 
 struct recinfo &keymap::sinkinfo()
@@ -1128,6 +1154,7 @@ void keymap::showlog()
 		printf("%i.%i", i, entry.logtype);
 		printf(" %lx %x %x %x", entry.duo, entry.ax, entry.ix, entry.at);
 #ifdef SIDELOG
+		struct sidelog *sidelog = (struct sidelog *)Private;
 		struct sidelog side = sidelog[i];
 		printf(" %lx %x %x %x", side.duo, side.rx, side.ix, side.at);
 #endif
@@ -1154,6 +1181,7 @@ void keymap::checklog(unsigned flags = 1)
 			struct delete_logent entry;
 			memcpy(&entry, &pmb, sizeof entry);
 #ifdef SIDELOG
+			struct sidelog *sidelog = (struct sidelog *)Private;
 			struct sidelog side = sidelog[i];
 
 			if (entry.logtype == 1) {
@@ -1181,6 +1209,7 @@ int keymap::unify()
 
 	for (int i = loghead, j = logtail; i != j; i = (i + 1) & logmask) {
 #ifdef SIDELOG
+		struct sidelog *sidelog = (struct sidelog *)Private;
 		struct sidelog side = sidelog[i];
 		if (verify) {
 			struct pmblock block;
@@ -1289,6 +1318,7 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 			memcpy(logent + sizeof head + reclen, key, keylen);
 			unsigned size = sizeof head + reclen + keylen;
 #ifdef SIDELOG
+			struct sidelog *sidelog = (struct sidelog *)Private;
 			sidelog[logtail] = (struct sidelog){ .duo = duo, .at = at, .ix = ix, .rx = tx };
 #endif
 			log_commit(microlog, logent, size, &logtail);
@@ -1357,7 +1387,8 @@ logging:
 	unsigned at = tier.countbuf[ix]++, ax = tx ^ (map->upper - map->tiers);
 	struct delete_logent head = { .logtype = 2, .ax = ax, .ix = ix, .at = at, .duo = duo };
 #ifdef SIDELOG
-	map->sidelog[map->logtail] = (struct keymap::sidelog){.duo = duo, .at = at, .ix = ix, .rx = tx};
+	struct sidelog *sidelog = (struct sidelog *)map->Private;
+	sidelog[map->logtail] = (struct sidelog){.duo = duo, .at = at, .ix = ix, .rx = tx};
 #endif
 	log_commit(map->microlog, &head, sizeof head, &map->logtail); // uninitialized at end!
 	return 0;
