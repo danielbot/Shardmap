@@ -149,7 +149,7 @@ struct tier
 	count_t *getbuf(unsigned size);
 	cell_t *at(unsigned ix, unsigned i) const;
 	void store(unsigned ix, unsigned i, cell_t entry) const;
-} __attribute__((packed));
+} ;
 
 struct shard
 {
