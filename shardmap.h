@@ -4,8 +4,6 @@
  * License: GPL v3
  */
 
-/* Should these generic things really be here? ... no, only the standard headers */
-
 #include <stdint.h>
 #include <functional> // to pass lambdas to bucket walkers
 #include <vector>
@@ -19,9 +17,56 @@ typedef uint32_t loc_t;
 typedef unsigned fixed8;
 typedef int64_t s64;
 
-extern "C" {
-#include "pmem.h" // for sidelog... don't expose this!
-#include "bigmap.h" // C style base class for keymap
+/* cache line and pmem characteristics */
+
+typedef uint64_t cell_t;
+enum {logorder = 9, logsize = 1 << logorder, logmask = logsize - 1};
+enum {cellshift = 3, cellsize = 1 << cellshift};
+enum {lineshift = 6, linesize = 1 << lineshift, linemask = linesize - 1, linecells = linesize >> cellshift};
+enum {blocklines = 4, blockcells = blocklines * linecells};
+struct pmblock { cell_t data[blockcells]; };
+
+extern "C" { // bigmap.h
+enum {bigmap_maxlevels = 10};
+
+struct datamap
+{
+	uint8_t *data;
+	loc_t loc;
+};
+
+struct bigmap
+{
+	unsigned blocksize, blockbits, levels;
+	loc_t blocks, maxblocks;
+	struct level {
+		struct datamap map;
+		uint16_t start, at, wrap, big;
+	} path[bigmap_maxlevels];
+	bool partial_path;
+	uint8_t big;
+	uint16_t reclen; // this is only here because some ext_bigmap functions need it. Fix!!!
+	uint8_t *rbspace; // this is only here because we have not properly abstracted the block mapping yet!!!
+};
+
+/* Exports */
+
+void bigmap_open(struct bigmap *map);
+void bigmap_close(struct bigmap *map);
+int bigmap_try(struct bigmap *map, unsigned len, unsigned big); // maybe bigmap should do ext_bigmap_big itself?
+int bigmap_free(struct bigmap *map, loc_t loc, unsigned big);
+size_t bigmap_check(struct bigmap *map);
+void bigmap_dump(struct bigmap *map);
+void bigmap_load(struct bigmap *map, loc_t loc); // rationalize me... inits path level[0]
+void add_new_rec_block(struct bigmap *map);
+bool is_maploc(loc_t loc, unsigned blockbits);
+
+/* Imports */
+
+uint8_t *ext_bigmap_mem(struct bigmap *map, loc_t loc);
+void ext_bigmap_map(struct bigmap *map, unsigned level, loc_t loc);
+void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm);
+unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm);
 }
 
 enum {one_fixed8 = 0x100};

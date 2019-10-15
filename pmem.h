@@ -1,21 +1,6 @@
 #include <x86intrin.h>
 
-/* pmem log configuration */
-
 enum {noflush = 1, use_clwb = 0, use_intrinsics = 1, streaming = 1, verbose = 0};
-enum {logorder = 9, logsize = 1 << logorder, logmask = logsize - 1};
-
-/* cache line and pmem characteristics */
-
-enum {cellshift = 3, cellsize = 1 << cellshift};
-enum {lineshift = 6, linesize = 1 << lineshift, linemask = linesize - 1, linecells = linesize >> cellshift};
-enum {blocklines = 4, blockcells = blocklines * linecells};
-
-typedef uint64_t cell_t;
-
-struct pmblock { cell_t data[blockcells]; };
-
-/* Low level memops */
 
 static void clflushopt(volatile void *p)
 {

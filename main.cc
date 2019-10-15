@@ -19,6 +19,7 @@ extern "C" {
 #include <sys/ioctl.h> // terminal size awareness in help/usage
 #include "options.h"
 #include "utility.h"
+#include "pmem.h"
 int uform(char *buf, int len, unsigned long n, unsigned base);
 }
 

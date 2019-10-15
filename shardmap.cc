@@ -19,6 +19,7 @@
 extern "C" {
 #include "debug.h"
 #include "utility.h"
+#include "pmem.h"
 }
 
 #define warn trace_on

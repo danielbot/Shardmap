@@ -25,7 +25,7 @@ shardmap.o: Makefile debug.h recops.h recops.c shardmap.h shardmap.cc
 bigmap.o: Makefile debug.h bigmap.c bigmap.h
 	gcc $(opt) -Wall -c bigmap.c
 
-pmem.o: Makefile debug.h pmem.h pmem.c
+pmem.o: Makefile debug.h pmem.c
 	gcc $(opt) -Wall -Wno-unused-function -c pmem.c
 
 options.o: Makefile debug.h options.h options.c

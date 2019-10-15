@@ -16,13 +16,24 @@
 #include <string.h>
 #include <errno.h>
 #include "debug.h"
-#include "pmem.h"
 
 typedef uint64_t u64;
 typedef uint32_t u32;
 typedef uint16_t u16;
 typedef unsigned char u8;
 typedef unsigned fixed8;
+typedef uint64_t cell_t;
+
+/* cache line and pmem characteristics (duplicated in shardmap.h */
+
+typedef uint64_t cell_t;
+enum {logorder = 9, logsize = 1 << logorder, logmask = logsize - 1};
+enum {cellshift = 3, cellsize = 1 << cellshift};
+enum {lineshift = 6, linesize = 1 << lineshift, linemask = linesize - 1, linecells = linesize >> cellshift};
+enum {blocklines = 4, blockcells = blocklines * linecells};
+struct pmblock { cell_t data[blockcells]; };
+
+#include "pmem.h"
 
 #define trace trace_off
 
