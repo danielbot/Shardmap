@@ -1203,8 +1203,7 @@ int keymap::unify()
 		memcpy(&entry, &block, sizeof entry); // stupid or not, strict aliasing requires this!
 		hashkey_t hash;
 		loc_t loc;
-		struct duopack defduo = {tiers[entry.ix].duo.mask, tiers[entry.ix].duo.bits0};
-		duo_unpack(&defduo, entry.duo, hash, loc);
+		duo_unpack(&tiers[entry.ix].duo, entry.duo, hash, loc);
 
 //		trace("%i: '%s' => %i:%u %.16lx @%i", i,
 //			cprinz(&block + sizeof entry, entry.head.len),
