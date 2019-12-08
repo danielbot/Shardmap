@@ -93,10 +93,19 @@ struct newduo
 	static void unpack(struct newduo *duo, const u64 packed, T1 &a, T2 &b) { a = first(duo, packed); b = second(duo, packed); }
 };
 
-struct hash_tri
+struct newtri
 {
 	u64 mask2;
 	u8 bits0, bits1;
+	typedef u32 T1;
+	typedef u32 T2;
+	typedef u64 T3;
+	static u64 pack(struct newtri *tri, const T1 a, const T2 b, const T3 c) { return power2(tri->bits0 + tri->bits1, c) | ((u64)b << tri->bits0) | a; }
+	static T1 first(struct newtri *tri, const u64 packed) { return packed & (tri->mask2 >> tri->bits1); }
+	static T2 second(struct newtri *tri, const u64 packed) { return (packed & tri->mask2) >> tri->bits0; }
+	static T2 third(struct newtri *tri, const u64 packed) { return packed >> (tri->bits0 + tri->bits1); }
+	static void unpack(struct newtri *tri, const u64 packed, T1 &a, T2 &b, T3 &c) { a = first(tri, packed); b = second(tri, packed); c = third(tri, packed); }
+	static void set_first(struct newtri *tri, u64 &packed, const T1 value) { packed = (packed & ~(tri->mask2 >> tri->bits1)) | value; }
 };
 
 template <class T1, class T2> duopack<T1, T2>::duopack(const unsigned bits0) :
@@ -292,6 +301,8 @@ unsigned shard::next_entry(const unsigned link) { return trio.first(table[link].
 void shard::set_link(unsigned prev, unsigned link)
 {
 	trio.set_first(table[prev].key_loc_link, link);
+	struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
+	newtri::set_first(&deftri, table[prev].key_loc_link, link);
 }
 
 unsigned shard::stride() const { return power2(tier().stridebits); } // hardly used!
@@ -342,6 +353,8 @@ void shard::walk_bucket(std::function<void(hashkey_t key, loc_t loc)> fn, unsign
 		u64 lowkey;
 		u32 next, loc;
 		trio.unpack(table[link].key_loc_link, next, loc, lowkey);
+		struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
+		newtri::unpack(&deftri, table[link].key_loc_link, next, loc, lowkey);
 		fn(power2(lowbits, bucket) | lowkey, loc);
 		if (next == endlist)
 			break;
@@ -412,7 +425,7 @@ int shard::load_from_media()
 
 	unsigned n = mediacount();
 	const duopack <cell_t, loc_t> &duo = tier().duo;
-	struct newduo duo_def = {tier().duo.mask, tier().duo.bits0};
+	struct newduo defduo = {tier().duo.mask, tier().duo.bits0};
 
 	trace("%i entries", n);
 	cell_t *media = tier().at(ix, 0);
@@ -426,7 +439,7 @@ int shard::load_from_media()
 		duo.unpack(entry, key, loc);
 		u64 key2;
 		loc_t loc2;
-		newduo::unpack(&duo_def, entry, key2, loc2);
+		newduo::unpack(&defduo, entry, key2, loc2);
 		assert(key == key2 && loc == loc2);
 
 		if (verbose)
@@ -465,7 +478,7 @@ int shard::flatten()
 	trace("shard %u buckets %u entries %u", ix, buckets(), count);
 	struct media_fifo media(tier(), ix);
 //	const struct duopack <cell_t, loc_t> &duo = tier().duo;
-	struct newduo duo_def = {tier().duo.mask, tier().duo.bits0};
+	struct newduo defduo = {tier().duo.mask, tier().duo.bits0};
 	for (unsigned bucket = 0; bucket < buckets(); bucket++) {
 		if (bucket_used(bucket)) {
 			unsigned link = bucket;
@@ -473,9 +486,11 @@ int shard::flatten()
 				u64 lowkey;
 				u32 next, loc;
 				trio.unpack(table[link].key_loc_link, next, loc, lowkey);
+				struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
+				newtri::unpack(&deftri, table[link].key_loc_link, next, loc, lowkey);
 				hashkey_t key = power2(lowbits, bucket) | lowkey;
 				trace_off("[%x] %lx => %lx", bucket, key, loc);
-				media.push(newduo::pack(&duo_def, key, loc));
+				media.push(newduo::pack(&defduo, key, loc));
 				if (!next)
 					break;
 				link = next;
@@ -1254,8 +1269,8 @@ int keymap::unify()
 		memcpy(&entry, &block, sizeof entry); // stupid or not, strict aliasing requires this!
 		hashkey_t hash;
 		loc_t loc;
-		struct newduo duo_def = {tiers[entry.ix].duo.mask, tiers[entry.ix].duo.bits0};
-		newduo::unpack(&duo_def, entry.duo, hash, loc);
+		struct newduo defduo = {tiers[entry.ix].duo.mask, tiers[entry.ix].duo.bits0};
+		newduo::unpack(&defduo, entry.duo, hash, loc);
 
 //		trace("%i: '%s' => %i:%u %.16lx @%i", i,
 //			cprinz(&block + sizeof entry, entry.head.len),
@@ -1332,9 +1347,9 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 			assert(shard == map[hash >> sigbits]); // super paranoia
 			unsigned tx = shard->tx, ix = shard->ix;
 			struct tier &tier = tiers[tx];
-			struct newduo duo_def = {tier.duo.mask, tier.duo.bits0};
+			struct newduo defduo = {tier.duo.mask, tier.duo.bits0};
 			cell_t duo = tier.duo.pack(hash & bitmask(sigbits), loc);
-			cell_t duo2 = newduo::pack(&duo_def, hash & bitmask(sigbits), loc);
+			cell_t duo2 = newduo::pack(&defduo, hash & bitmask(sigbits), loc);
 			assert(duo == duo2);
 			unsigned at = tier.countbuf[ix]++, ax = tx ^ (upper - tiers);
 
@@ -1413,8 +1428,8 @@ int shard::remove(const void *key, unsigned len, hashkey_t hash)
 logging:
 	// don't forget: squash still not handled!!! (also need for insert)
 	struct tier &tier = map->tiers[tx];
-	struct newduo duo_def = {tier.duo.mask, tier.duo.bits0};
-	cell_t duo = newduo::pack(&duo_def, hash & bitmask(map->sigbits), loc) | high64;
+	struct newduo defduo = {tier.duo.mask, tier.duo.bits0};
+	cell_t duo = newduo::pack(&defduo, hash & bitmask(map->sigbits), loc) | high64;
 	unsigned at = tier.countbuf[ix]++, ax = tx ^ (map->upper - map->tiers);
 	struct delete_logent head = { .logtype = 2, .ax = ax, .ix = ix, .at = at, .duo = duo };
 #ifdef SIDELOG
