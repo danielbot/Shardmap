@@ -79,6 +79,20 @@ enum {split_order = 0, totalentries_order = 26};
 #include <utility> // swap
 #include <string>
 
+/* Variable width field packing */
+
+static u64 duo_pack(const struct duopack *duo, const duopack::T1 a, const duopack::T2 b) { return (power2(duo->bits0, b)) | a; }
+static duopack::T1 duo_first(const struct duopack *duo, const u64 packed) { return packed & duo->mask; }
+static duopack::T2 duo_second(const struct duopack *duo, const u64 packed) { return packed >> duo->bits0; }
+static void duo_unpack(const struct duopack *duo, const u64 packed, duopack::T1 &a, duopack::T2 &b) { a = duo_first(duo, packed); b = duo_second(duo, packed); }
+
+static u64 tri_pack(const struct tripack *tri, const tripack::T1 a, const tripack::T2 b, const tripack::T3 c) { return power2(tri->bits0 + tri->bits1, c) | ((u64)b << tri->bits0) | a; }
+static tripack::T1 tri_first(const struct tripack *tri, const u64 packed) { return packed & (tri->mask2 >> tri->bits1); }
+static tripack::T2 tri_second(const struct tripack *tri, const u64 packed) { return (packed & tri->mask2) >> tri->bits0; }
+static tripack::T3 tri_third(const struct tripack *tri, const u64 packed) { return packed >> (tri->bits0 + tri->bits1); }
+static void tri_unpack(const struct tripack *tri, const u64 packed, tripack::T1 &a, tripack::T2 &b, tripack::T3 &c) { a = tri_first(tri, packed); b = tri_second(tri, packed); c = tri_third(tri, packed); }
+static void tri_set_first(const struct tripack *tri, u64 &packed, const tripack::T1 value) { packed = (packed & ~(tri->mask2 >> tri->bits1)) | value; }
+
 /* Persistent memory */
 
 #ifdef SIDELOG
