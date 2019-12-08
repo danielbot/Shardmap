@@ -122,31 +122,6 @@ int main(int argc, const char *argv[])
 		error_exit(1, "%s <filename> <iterations>", argv[0]);
 
 	if (0) {
-		unsigned n = atoi(argv[2]);
-		unsigned bits0 = atoi(argv[1]);
-		duopack <u32, u64> duo(bits0);
-		u64 sum = 0;
-
-		for (unsigned i = 0; i < n; i++) {
-			u32 a;
-			u64 b;
-			if (1) {
-				u64 packed = duo.pack(0x123456, 0x888888);
-				hexdump(&packed, sizeof packed);
-				duo.unpack(packed, a, b);
-				printf("%x %lx\n", a, b);
-				printf("%x %lx\n", duo.first(packed), duo.second(packed));
-			} else {
-				u64 packed = duo.pack(sum, bits0);
-				duo.unpack(packed, a, b);
-			}
-			sum += a ^ b;
-		}
-		printf("sum %li\n", sum);
-		return 0;
-	}
-
-	if (0) {
 		unsigned n = atoi(argv[3]);
 		unsigned bits0 = atoi(argv[1]), bits1 = atoi(argv[2]);
 		tripack <u64, u64, u64> test(bits0, bits1);
