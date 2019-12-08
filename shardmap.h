@@ -89,31 +89,33 @@ struct duopack
 {
 	u64 mask;
 	u8 bits0;
-	typedef cell_t T1;
-	typedef loc_t T2;
 	duopack() = default; // so tier can be default-constructed in drop_tier
 	duopack(const unsigned bits0) : mask(bitmask(bits0)), bits0(bits0) {}
-	static u64 pack(const struct duopack *duo, const T1 a, const T2 b) { return (power2(duo->bits0, b)) | a; }
-	static T1 first(const struct duopack *duo, const u64 packed) { return packed & duo->mask; }
-	static T2 second(const struct duopack *duo, const u64 packed) { return packed >> duo->bits0; }
-	static void unpack(const struct duopack *duo, const u64 packed, T1 &a, T2 &b) { a = first(duo, packed); b = second(duo, packed); }
+	typedef cell_t T1;
+	typedef loc_t T2;
 } __attribute__((packed));
+
+static u64 duo_pack(const struct duopack *duo, const duopack::T1 a, const duopack::T2 b) { return (power2(duo->bits0, b)) | a; }
+static duopack::T1 duo_first(const struct duopack *duo, const u64 packed) { return packed & duo->mask; }
+static duopack::T2 duo_second(const struct duopack *duo, const u64 packed) { return packed >> duo->bits0; }
+static void duo_unpack(const struct duopack *duo, const u64 packed, duopack::T1 &a, duopack::T2 &b) { a = duo_first(duo, packed); b = duo_second(duo, packed); }
 
 struct tripack
 {
 	u64 mask2;
 	u8 bits0, bits1;
+	tripack(const unsigned bits0, const unsigned bits1) : mask2(bitmask(bits0 + bits1)), bits0(bits0), bits1(bits1) {}
 	typedef u32 T1;
 	typedef u32 T2;
 	typedef u64 T3;
-	tripack(const unsigned bits0, const unsigned bits1) : mask2(bitmask(bits0 + bits1)), bits0(bits0), bits1(bits1) {}
-	static u64 pack(const struct tripack *tri, const T1 a, const T2 b, const T3 c) { return power2(tri->bits0 + tri->bits1, c) | ((u64)b << tri->bits0) | a; }
-	static T1 first(const struct tripack *tri, const u64 packed) { return packed & (tri->mask2 >> tri->bits1); }
-	static T2 second(const struct tripack *tri, const u64 packed) { return (packed & tri->mask2) >> tri->bits0; }
-	static T3 third(const struct tripack *tri, const u64 packed) { return packed >> (tri->bits0 + tri->bits1); }
-	static void unpack(const struct tripack *tri, const u64 packed, T1 &a, T2 &b, T3 &c) { a = first(tri, packed); b = second(tri, packed); c = third(tri, packed); }
-	static void set_first(const struct tripack *tri, u64 &packed, const T1 value) { packed = (packed & ~(tri->mask2 >> tri->bits1)) | value; }
 };
+
+static u64 tri_pack(const struct tripack *tri, const tripack::T1 a, const tripack::T2 b, const tripack::T3 c) { return power2(tri->bits0 + tri->bits1, c) | ((u64)b << tri->bits0) | a; }
+static tripack::T1 tri_first(const struct tripack *tri, const u64 packed) { return packed & (tri->mask2 >> tri->bits1); }
+static tripack::T2 tri_second(const struct tripack *tri, const u64 packed) { return (packed & tri->mask2) >> tri->bits0; }
+static tripack::T3 tri_third(const struct tripack *tri, const u64 packed) { return packed >> (tri->bits0 + tri->bits1); }
+static void tri_unpack(const struct tripack *tri, const u64 packed, tripack::T1 &a, tripack::T2 &b, tripack::T3 &c) { a = tri_first(tri, packed); b = tri_second(tri, packed); c = tri_third(tri, packed); }
+static void tri_set_first(const struct tripack *tri, u64 &packed, const tripack::T1 value) { packed = (packed & ~(tri->mask2 >> tri->bits1)) | value; }
 
 struct region { u64 /* is this right? */ size, align; void **mem; loff_t *pos; };
 
