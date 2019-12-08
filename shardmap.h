@@ -91,8 +91,6 @@ struct duopack
 	u8 bits0;
 	duopack() = default; // so tier can be default-constructed in drop_tier
 	duopack(const unsigned bits0) : mask(bitmask(bits0)), bits0(bits0) {}
-	typedef cell_t T1;
-	typedef loc_t T2;
 } __attribute__((packed));
 
 struct tripack
@@ -100,9 +98,6 @@ struct tripack
 	u64 mask2;
 	u8 bits0, bits1;
 	tripack(const unsigned bits0, const unsigned bits1) : mask2(bitmask(bits0 + bits1)), bits0(bits0), bits1(bits1) {}
-	typedef u32 T1;
-	typedef u32 T2;
-	typedef u64 T3;
 } __attribute__((packed));
 
 struct region { u64 /* is this right? */ size, align; void **mem; loff_t *pos; };
