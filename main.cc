@@ -121,30 +121,6 @@ int main(int argc, const char *argv[])
 	if (argc <= 2)
 		error_exit(1, "%s <filename> <iterations>", argv[0]);
 
-	if (0) {
-		unsigned n = atoi(argv[3]);
-		unsigned bits0 = atoi(argv[1]), bits1 = atoi(argv[2]);
-		tripack <u64, u64, u64> test(bits0, bits1);
-		u64 sum = 0;
-
-		for (unsigned i = 0; i < n; i++) {
-			u64 a, b, c;
-			if (1) {
-				u64 packed = test.pack(0x9999, 0x888888, 0x123456);
-				hexdump(&packed, sizeof packed);
-				test.unpack(packed, a, b, c);
-				printf("%lx %lx %lx\n", a, b, c);
-				printf("%lx %lx %lx\n", test.third(packed), test.second(packed), test.first(packed));
-			} else {
-				u64 packed = test.pack(bits0, sum, sum);
-				test.unpack(packed, a, b, c);
-			}
-			sum += a ^ b ^ c;
-		}
-		printf("sum %li\n", sum);
-		return 0;
-	}
-
 	struct header head = {
 		.magic = {'t', 'e', 's', 't'},
 		.version = 0,

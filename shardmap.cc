@@ -79,30 +79,6 @@ enum {split_order = 0, totalentries_order = 26};
 #include <utility> // swap
 #include <string>
 
-/* Variable width field packing */
-
-template <class T1, class T2, class T3> tripack<T1, T2, T3>::tripack(const unsigned bits0, const unsigned bits1) :
-	mask2(bitmask(bits0 + bits1)), bits0(bits0), bits1(bits1)
-{ trace("bits0 %i bits1 %i", bits0, bits1); }
-
-template <class T1, class T2, class T3> u64 tripack<T1, T2, T3>::pack(const T1 a, const T2 b, const T3 c) const
-{ return power2(bits0 + bits1, c) | ((u64)b << bits0) | a; }
-
-template <class T1, class T2, class T3> void tripack<T1, T2, T3>::unpack(const u64 packed, T1 &a, T2 &b, T3 &c) const
-{ a = first(packed); b = second(packed); c = third(packed); }
-
-template <class T1, class T2, class T3> u64 tripack<T1, T2, T3>::first(const u64 packed) const
-{ return packed & (mask2 >> bits1); }
-
-template <class T1, class T2, class T3> u64 tripack<T1, T2, T3>::second(const u64 packed) const
-{ return (packed & mask2) >> bits0; }
-
-template <class T1, class T2, class T3> u64 tripack<T1, T2, T3>::third(const u64 packed) const
-{ return packed >> (bits0 + bits1); }
-
-template <class T1, class T2, class T3> void tripack<T1, T2, T3>::set_first(u64 &packed, const T1 field) const
-{ packed = (packed & ~(mask2 >> bits1)) | field; }
-
 /* Persistent memory */
 
 #ifdef SIDELOG
@@ -253,16 +229,8 @@ struct media_fifo : fifo // what is this??
 
 unsigned shard::buckets() { return power2(tablebits); }
 bool shard::bucket_used(const unsigned i) { return table[i].key_loc_link != noentry; }
-unsigned shard::next_entry(const unsigned link) {
-	struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
-	return newtri::first(&deftri, table[link].key_loc_link); }
-
-void shard::set_link(unsigned prev, unsigned link)
-{
-	struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
-	newtri::set_first(&deftri, table[prev].key_loc_link, link);
-}
-
+unsigned shard::next_entry(const unsigned link) { return newtri::first(&tri, table[link].key_loc_link); }
+void shard::set_link(unsigned prev, unsigned link) { newtri::set_first(&tri, table[prev].key_loc_link, link); }
 unsigned shard::stride() const { return power2(tier().stridebits); } // hardly used!
 
 void shard::empty()
@@ -310,9 +278,7 @@ void shard::walk_bucket(std::function<void(hashkey_t key, loc_t loc)> fn, unsign
 	for (unsigned link = bucket;;) {
 		u64 lowkey;
 		u32 next, loc;
-		trio.unpack(table[link].key_loc_link, next, loc, lowkey);
-		struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
-		newtri::unpack(&deftri, table[link].key_loc_link, next, loc, lowkey);
+		newtri::unpack(&tri, table[link].key_loc_link, next, loc, lowkey);
 		fn(power2(lowbits, bucket) | lowkey, loc);
 		if (next == endlist)
 			break;
@@ -428,15 +394,13 @@ int shard::flatten()
 {
 	trace("shard %u buckets %u entries %u", ix, buckets(), count);
 	struct media_fifo media(tier(), ix);
-	struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
 	for (unsigned bucket = 0; bucket < buckets(); bucket++) {
 		if (bucket_used(bucket)) {
 			unsigned link = bucket;
 			while (1) {
 				u64 lowkey;
 				u32 next, loc;
-				trio.unpack(table[link].key_loc_link, next, loc, lowkey);
-				newtri::unpack(&deftri, table[link].key_loc_link, next, loc, lowkey);
+				newtri::unpack(&tri, table[link].key_loc_link, next, loc, lowkey);
 				hashkey_t key = power2(lowbits, bucket) | lowkey;
 				trace_off("[%x] %lx => %lx", bucket, key, loc);
 				media.push(newduo::pack(&tier().duo, key, loc));
@@ -457,7 +421,6 @@ void shard::reshard_part(struct shard *out, unsigned more_shards, unsigned part)
 {
 	unsigned partbits = tablebits - more_shards;
 	trace("reshard x%li buckets %u entries %u", power2(more_shards), out->buckets(), count);
-	struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
 	for (unsigned bucket = part << partbits; bucket < (part + 1) << partbits; bucket++) {
 		assert(bucket < buckets());
 		if (bucket_used(bucket)) {
@@ -465,8 +428,7 @@ void shard::reshard_part(struct shard *out, unsigned more_shards, unsigned part)
 			while (1) {
 				u64 lowkey;
 				u32 next, loc;
-				trio.unpack(table[link].key_loc_link, next, loc, lowkey);
-				newtri::unpack(&deftri, table[link].key_loc_link, next, loc, lowkey);
+				newtri::unpack(&tri, table[link].key_loc_link, next, loc, lowkey);
 				hashkey_t key = power2(lowbits, bucket) | lowkey;
 				trace_off("[%x] %lx => %lx", bucket, key, loc);
 				out->insert(key, loc);
@@ -956,7 +918,7 @@ shard::shard(struct keymap *map, const struct tier *tier, unsigned i, unsigned t
 	free(endlist), top(power2(linkbits)), // should depend on limit!!!
 	count(0), limit(mul8(map->loadfactor, power2(tablebits))), // must not be more than cells(stride) - 1 (magic)
 	tablebits(tablebits), lowbits(tier->sigbits - tablebits), tx(tier - map->tiers), ix(i >> map->tiershift(*tier)),
-	map(map), trio(linkbits, tier->locbits)
+	map(map), tri(linkbits, tier->locbits)
 {
 	assert(tablebits <= linkbits);
 	assert(power2(cellshift, top) <= power2(tier->stridebits));
@@ -977,13 +939,12 @@ rec_t *shard::lookup(const void *key, unsigned len, hashkey_t hash)
 	cell_t lowhash = hash & bitmask(lowbits);
 	unsigned link = (hash >> lowbits) & bitmask(tablebits);
 	trace("hash %lx ix %i:%x bucket %x", hash, is_lower(), ix, link);
-	struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
 	if (bucket_used(link)) {
 		tests++;
 		do {
 			const cell_t &entry = table[link].key_loc_link;
-			if (newtri::third(&deftri, entry) == lowhash) {
-				loc_t loc = newtri::second(&deftri, entry);
+			if (newtri::third(&tri, entry) == lowhash) {
+				loc_t loc = newtri::second(&tri, entry);
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
 				struct recinfo &ri = map->peekinfo(loc);
@@ -1021,9 +982,7 @@ int shard::insert(const hashkey_t key, const loc_t loc)
 		table[next] = table[bucket];
 	}
 	trace_off("set_entry key 0x%Lx => 0x%x", (long long)key, loc);
-	table[bucket] = {trio.pack(next, loc, key & bitmask(lowbits))};
-	struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
-	table[bucket] = {newtri::pack(&deftri, next, loc, key & bitmask(lowbits))};
+	table[bucket] = {newtri::pack(&tri, next, loc, key & bitmask(lowbits))};
 	count++;
 	return 0;
 }
@@ -1035,7 +994,7 @@ int shard::remove(const hashkey_t key, const loc_t loc)
 	if (!bucket_used(bucket))
 		return -ENOENT;
 
-	const unsigned shift0 = trio.bits0, shift2 = trio.bits1 + trio.bits0;
+	const unsigned shift0 = tri.bits0, shift2 = tri.bits1 + tri.bits0;
 	const u64 pairdata = power2(shift2, key & bitmask(lowbits)) | power2(shift0, loc);
 	const u64 pairmask = -1ULL << shift0, linkmask = ~pairmask;
 	u64 entry = table[bucket].key_loc_link;
@@ -1052,8 +1011,7 @@ int shard::remove(const hashkey_t key, const loc_t loc)
 		}
 		trace("pop bucket");
 		table[bucket] = table[next];
-		struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
-		newtri::set_first(&deftri, table[next].key_loc_link, free);
+		newtri::set_first(&tri, table[next].key_loc_link, free);
 		free = next;
 		return 0;
 	}
@@ -1062,7 +1020,7 @@ int shard::remove(const hashkey_t key, const loc_t loc)
 		unsigned prev = link;
 		entry = table[link = next].key_loc_link;
 		next = entry & linkmask;
-		trace("entry = {0x%lx, %lx}", newtri::third(&deftri, entry), newtri::second(&deftri, entry));
+		trace("entry = {0x%lx, %lx}", newtri::third(&tri, entry), newtri::second(&tri, entry));
 		if ((entry & pairmask) == pairdata) {
 			trace("free this");
 			set_link(prev, next);
@@ -1358,9 +1316,8 @@ int shard::remove(const void *key, unsigned len, hashkey_t hash)
 		tests++;
 		do {
 			const cell_t &entry = table[link].key_loc_link;
-			struct newtri deftri = {trio.mask2, trio.bits0, trio.bits1};
-			if (newtri::third(&deftri, entry) == lowkey) {
-				loc = trio.second(entry);
+			if (newtri::third(&tri, entry) == lowkey) {
+				loc = newtri::second(&tri, entry);
 				trace("probe block %x", loc);
 				probes++;
 				struct recinfo ri = map->peekinfo(loc);
