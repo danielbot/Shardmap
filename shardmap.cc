@@ -229,8 +229,8 @@ struct media_fifo : fifo // what is this??
 
 unsigned shard::buckets() { return power2(tablebits); }
 bool shard::bucket_used(const unsigned i) { return table[i].key_loc_link != noentry; }
-unsigned shard::next_entry(const unsigned link) { return newtri::first(&tri, table[link].key_loc_link); }
-void shard::set_link(unsigned prev, unsigned link) { newtri::set_first(&tri, table[prev].key_loc_link, link); }
+unsigned shard::next_entry(const unsigned link) { return tripack::first(&tri, table[link].key_loc_link); }
+void shard::set_link(unsigned prev, unsigned link) { tripack::set_first(&tri, table[prev].key_loc_link, link); }
 unsigned shard::stride() const { return power2(tier().stridebits); } // hardly used!
 
 void shard::empty()
@@ -278,7 +278,7 @@ void shard::walk_bucket(std::function<void(hashkey_t key, loc_t loc)> fn, unsign
 	for (unsigned link = bucket;;) {
 		u64 lowkey;
 		u32 next, loc;
-		newtri::unpack(&tri, table[link].key_loc_link, next, loc, lowkey);
+		tripack::unpack(&tri, table[link].key_loc_link, next, loc, lowkey);
 		fn(power2(lowbits, bucket) | lowkey, loc);
 		if (next == endlist)
 			break;
@@ -357,7 +357,7 @@ int shard::load_from_media()
 		entry &= ~high64;
 		u64 key;
 		loc_t loc;
-		newduo::unpack(&tier().duo, entry, key, loc);
+		duopack::unpack(&tier().duo, entry, key, loc);
 
 		if (verbose)
 			printf("%c%lx:%x%c", "-+"[is_insert], key, loc, " \n"[!(j % 10)]);
@@ -400,10 +400,10 @@ int shard::flatten()
 			while (1) {
 				u64 lowkey;
 				u32 next, loc;
-				newtri::unpack(&tri, table[link].key_loc_link, next, loc, lowkey);
+				tripack::unpack(&tri, table[link].key_loc_link, next, loc, lowkey);
 				hashkey_t key = power2(lowbits, bucket) | lowkey;
 				trace_off("[%x] %lx => %lx", bucket, key, loc);
-				media.push(newduo::pack(&tier().duo, key, loc));
+				media.push(duopack::pack(&tier().duo, key, loc));
 				if (!next)
 					break;
 				link = next;
@@ -428,7 +428,7 @@ void shard::reshard_part(struct shard *out, unsigned more_shards, unsigned part)
 			while (1) {
 				u64 lowkey;
 				u32 next, loc;
-				newtri::unpack(&tri, table[link].key_loc_link, next, loc, lowkey);
+				tripack::unpack(&tri, table[link].key_loc_link, next, loc, lowkey);
 				hashkey_t key = power2(lowbits, bucket) | lowkey;
 				trace_off("[%x] %lx => %lx", bucket, key, loc);
 				out->insert(key, loc);
@@ -943,8 +943,8 @@ rec_t *shard::lookup(const void *key, unsigned len, hashkey_t hash)
 		tests++;
 		do {
 			const cell_t &entry = table[link].key_loc_link;
-			if (newtri::third(&tri, entry) == lowhash) {
-				loc_t loc = newtri::second(&tri, entry);
+			if (tripack::third(&tri, entry) == lowhash) {
+				loc_t loc = tripack::second(&tri, entry);
 				trace("probe block %i:%x", map->id, loc);
 				probes++;
 				struct recinfo &ri = map->peekinfo(loc);
@@ -982,7 +982,7 @@ int shard::insert(const hashkey_t key, const loc_t loc)
 		table[next] = table[bucket];
 	}
 	trace_off("set_entry key 0x%Lx => 0x%x", (long long)key, loc);
-	table[bucket] = {newtri::pack(&tri, next, loc, key & bitmask(lowbits))};
+	table[bucket] = {tripack::pack(&tri, next, loc, key & bitmask(lowbits))};
 	count++;
 	return 0;
 }
@@ -1011,7 +1011,7 @@ int shard::remove(const hashkey_t key, const loc_t loc)
 		}
 		trace("pop bucket");
 		table[bucket] = table[next];
-		newtri::set_first(&tri, table[next].key_loc_link, free);
+		tripack::set_first(&tri, table[next].key_loc_link, free);
 		free = next;
 		return 0;
 	}
@@ -1020,7 +1020,7 @@ int shard::remove(const hashkey_t key, const loc_t loc)
 		unsigned prev = link;
 		entry = table[link = next].key_loc_link;
 		next = entry & linkmask;
-		trace("entry = {0x%lx, %lx}", newtri::third(&tri, entry), newtri::second(&tri, entry));
+		trace("entry = {0x%lx, %lx}", tripack::third(&tri, entry), tripack::second(&tri, entry));
 		if ((entry & pairmask) == pairdata) {
 			trace("free this");
 			set_link(prev, next);
@@ -1182,8 +1182,8 @@ int keymap::unify()
 		memcpy(&entry, &block, sizeof entry); // stupid or not, strict aliasing requires this!
 		hashkey_t hash;
 		loc_t loc;
-		struct newduo defduo = {tiers[entry.ix].duo.mask, tiers[entry.ix].duo.bits0};
-		newduo::unpack(&defduo, entry.duo, hash, loc);
+		struct duopack defduo = {tiers[entry.ix].duo.mask, tiers[entry.ix].duo.bits0};
+		duopack::unpack(&defduo, entry.duo, hash, loc);
 
 //		trace("%i: '%s' => %i:%u %.16lx @%i", i,
 //			cprinz(&block + sizeof entry, entry.head.len),
@@ -1260,7 +1260,7 @@ rec_t *keymap::insert(const void *key, unsigned keylen, const void *newrec, bool
 			assert(shard == map[hash >> sigbits]); // super paranoia
 			unsigned tx = shard->tx, ix = shard->ix;
 			struct tier &tier = tiers[tx];
-			cell_t duo = newduo::pack(&tier.duo, hash & bitmask(sigbits), loc);
+			cell_t duo = duopack::pack(&tier.duo, hash & bitmask(sigbits), loc);
 			unsigned at = tier.countbuf[ix]++, ax = tx ^ (upper - tiers);
 
 			struct insert_logent head = { // this usage requires c++17
@@ -1316,8 +1316,8 @@ int shard::remove(const void *key, unsigned len, hashkey_t hash)
 		tests++;
 		do {
 			const cell_t &entry = table[link].key_loc_link;
-			if (newtri::third(&tri, entry) == lowkey) {
-				loc = newtri::second(&tri, entry);
+			if (tripack::third(&tri, entry) == lowkey) {
+				loc = tripack::second(&tri, entry);
 				trace("probe block %x", loc);
 				probes++;
 				struct recinfo ri = map->peekinfo(loc);
@@ -1338,7 +1338,7 @@ int shard::remove(const void *key, unsigned len, hashkey_t hash)
 logging:
 	// don't forget: squash still not handled!!! (also need for insert)
 	struct tier &tier = map->tiers[tx];
-	cell_t duo = newduo::pack(&tier.duo, hash & bitmask(map->sigbits), loc) | high64;
+	cell_t duo = duopack::pack(&tier.duo, hash & bitmask(map->sigbits), loc) | high64;
 	unsigned at = tier.countbuf[ix]++, ax = tx ^ (map->upper - map->tiers);
 	struct delete_logent head = { .logtype = 2, .ax = ax, .ix = ix, .at = at, .duo = duo };
 #ifdef SIDELOG

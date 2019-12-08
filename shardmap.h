@@ -85,34 +85,34 @@ typedef u64 hashkey_t;
 
 /* Variable width field support */
 
-struct newduo
+struct duopack
 {
 	u64 mask;
 	u8 bits0;
 	typedef cell_t T1;
 	typedef loc_t T2;
-	newduo() = default; // so tier can be default-constructed in drop_tier
-	newduo(const unsigned bits0) : mask(bitmask(bits0)), bits0(bits0) {}
-	static u64 pack(const struct newduo *duo, const T1 a, const T2 b) { return (power2(duo->bits0, b)) | a; }
-	static T1 first(const struct newduo *duo, const u64 packed) { return packed & duo->mask; }
-	static T2 second(const struct newduo *duo, const u64 packed) { return packed >> duo->bits0; }
-	static void unpack(const struct newduo *duo, const u64 packed, T1 &a, T2 &b) { a = first(duo, packed); b = second(duo, packed); }
+	duopack() = default; // so tier can be default-constructed in drop_tier
+	duopack(const unsigned bits0) : mask(bitmask(bits0)), bits0(bits0) {}
+	static u64 pack(const struct duopack *duo, const T1 a, const T2 b) { return (power2(duo->bits0, b)) | a; }
+	static T1 first(const struct duopack *duo, const u64 packed) { return packed & duo->mask; }
+	static T2 second(const struct duopack *duo, const u64 packed) { return packed >> duo->bits0; }
+	static void unpack(const struct duopack *duo, const u64 packed, T1 &a, T2 &b) { a = first(duo, packed); b = second(duo, packed); }
 } __attribute__((packed));
 
-struct newtri
+struct tripack
 {
 	u64 mask2;
 	u8 bits0, bits1;
 	typedef u32 T1;
 	typedef u32 T2;
 	typedef u64 T3;
-	newtri(const unsigned bits0, const unsigned bits1) : mask2(bitmask(bits0 + bits1)), bits0(bits0), bits1(bits1) {}
-	static u64 pack(const struct newtri *tri, const T1 a, const T2 b, const T3 c) { return power2(tri->bits0 + tri->bits1, c) | ((u64)b << tri->bits0) | a; }
-	static T1 first(const struct newtri *tri, const u64 packed) { return packed & (tri->mask2 >> tri->bits1); }
-	static T2 second(const struct newtri *tri, const u64 packed) { return (packed & tri->mask2) >> tri->bits0; }
-	static T3 third(const struct newtri *tri, const u64 packed) { return packed >> (tri->bits0 + tri->bits1); }
-	static void unpack(const struct newtri *tri, const u64 packed, T1 &a, T2 &b, T3 &c) { a = first(tri, packed); b = second(tri, packed); c = third(tri, packed); }
-	static void set_first(const struct newtri *tri, u64 &packed, const T1 value) { packed = (packed & ~(tri->mask2 >> tri->bits1)) | value; }
+	tripack(const unsigned bits0, const unsigned bits1) : mask2(bitmask(bits0 + bits1)), bits0(bits0), bits1(bits1) {}
+	static u64 pack(const struct tripack *tri, const T1 a, const T2 b, const T3 c) { return power2(tri->bits0 + tri->bits1, c) | ((u64)b << tri->bits0) | a; }
+	static T1 first(const struct tripack *tri, const u64 packed) { return packed & (tri->mask2 >> tri->bits1); }
+	static T2 second(const struct tripack *tri, const u64 packed) { return (packed & tri->mask2) >> tri->bits0; }
+	static T3 third(const struct tripack *tri, const u64 packed) { return packed >> (tri->bits0 + tri->bits1); }
+	static void unpack(const struct tripack *tri, const u64 packed, T1 &a, T2 &b, T3 &c) { a = first(tri, packed); b = second(tri, packed); c = third(tri, packed); }
+	static void set_first(const struct tripack *tri, u64 &packed, const T1 value) { packed = (packed & ~(tri->mask2 >> tri->bits1)) | value; }
 };
 
 struct region { u64 /* is this right? */ size, align; void **mem; loff_t *pos; };
@@ -144,7 +144,7 @@ struct header {
 
 struct tier
 {
-	newduo duo; // defines loc:sigbits variable width media image entries
+	duopack duo; // defines loc:sigbits variable width media image entries
 	u8 mapbits, stridebits, locbits, sigbits, unused[3]; // sigbits not used in fast path, can derive from shardmap sigbits and difference between tier mapbits.
 	count_t *countbuf; // front buffer
 	count_t *countmap; // pmem, cannot be freed, please make it clear
@@ -173,7 +173,7 @@ struct shard
 	u16 ix:15; // shard index within tier map
 	struct shard_entry { u64 key_loc_link; } *table;
 	struct keymap *const map;
-	const newtri tri;
+	const tripack tri;
 	shard(struct keymap *map, const struct tier *tier, unsigned i, unsigned tablebits, unsigned linkbits);
 	bool is_lower();
 	const struct tier &tier() const;
