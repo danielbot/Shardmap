@@ -26,7 +26,7 @@ enum {lineshift = 6, linesize = 1 << lineshift, linemask = linesize - 1, linecel
 enum {blocklines = 4, blockcells = blocklines * linecells};
 struct pmblock { cell_t data[blockcells]; };
 
-/* some handy inlines (these should not be here!) */
+/* some handy inlines (put these elsewhere!) */
 
 static u64 power2(unsigned power) { return 1LL << power; }
 static u64 power2(unsigned power, u64 value) { return value << power; }
@@ -91,7 +91,7 @@ struct newduo
 	u8 bits0;
 	typedef cell_t T1;
 	typedef loc_t T2;
-	newduo() = default; // ??this is an obscure thing
+	newduo() = default; // so tier can be default-constructed in drop_tier
 	newduo(const unsigned bits0) : mask(bitmask(bits0)), bits0(bits0) {}
 	static u64 pack(const struct newduo *duo, const T1 a, const T2 b) { return (power2(duo->bits0, b)) | a; }
 	static T1 first(const struct newduo *duo, const u64 packed) { return packed & duo->mask; }
