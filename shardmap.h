@@ -26,6 +26,13 @@ enum {lineshift = 6, linesize = 1 << lineshift, linemask = linesize - 1, linecel
 enum {blocklines = 4, blockcells = blocklines * linecells};
 struct pmblock { cell_t data[blockcells]; };
 
+/* some handy inlines (these should not be here!) */
+
+static u64 power2(unsigned power) { return 1LL << power; }
+static u64 power2(unsigned power, u64 value) { return value << power; }
+static u64 bitmask(unsigned bits) { return power2(bits) - 1; }
+static u64 align(u64 n, unsigned bits) { return n + (-n & bitmask(bits)); }
+
 extern "C" { // bigmap.h
 enum {bigmap_maxlevels = 10};
 
@@ -77,6 +84,33 @@ typedef u64 hashkey_t;
 /* ...shardmap.h proper begins below */
 
 /* Variable width field support */
+
+struct newduo
+{
+	u64 mask;
+	u8 bits0;
+	typedef cell_t T1;
+	typedef loc_t T2;
+	static u64 pack(struct newduo *duo, const T1 a, const T2 b) { return (power2(duo->bits0, b)) | a; }
+	static T1 first(struct newduo *duo, const u64 packed) { return packed & duo->mask; }
+	static T2 second(struct newduo *duo, const u64 packed) { return packed >> duo->bits0; }
+	static void unpack(struct newduo *duo, const u64 packed, T1 &a, T2 &b) { a = first(duo, packed); b = second(duo, packed); }
+};
+
+struct newtri
+{
+	u64 mask2;
+	u8 bits0, bits1;
+	typedef u32 T1;
+	typedef u32 T2;
+	typedef u64 T3;
+	static u64 pack(struct newtri *tri, const T1 a, const T2 b, const T3 c) { return power2(tri->bits0 + tri->bits1, c) | ((u64)b << tri->bits0) | a; }
+	static T1 first(struct newtri *tri, const u64 packed) { return packed & (tri->mask2 >> tri->bits1); }
+	static T2 second(struct newtri *tri, const u64 packed) { return (packed & tri->mask2) >> tri->bits0; }
+	static T3 third(struct newtri *tri, const u64 packed) { return packed >> (tri->bits0 + tri->bits1); }
+	static void unpack(struct newtri *tri, const u64 packed, T1 &a, T2 &b, T3 &c) { a = first(tri, packed); b = second(tri, packed); c = third(tri, packed); }
+	static void set_first(struct newtri *tri, u64 &packed, const T1 value) { packed = (packed & ~(tri->mask2 >> tri->bits1)) | value; }
+};
 
 template <class T1, class T2> struct duopack
 {
@@ -326,10 +360,3 @@ struct keymap : bigmap
 /* misc cruft */
 
 enum {microlog_size = logsize * sizeof (struct pmblock)};
-
-/* some handy inlines */
-
-static u64 power2(unsigned power) { return 1LL << power; }
-static u64 power2(unsigned power, u64 value) { return value << power; }
-static u64 bitmask(unsigned bits) { return power2(bits) - 1; }
-static u64 align(u64 n, unsigned bits) { return n + (-n & bitmask(bits)); }
