@@ -84,6 +84,7 @@ enum {split_order = 0, totalentries_order = 26};
 typedef cell_t duo_t1;
 typedef loc_t duo_t2;
 
+static struct duopack new_duo(const unsigned bits0) { return {bitmask(bits0), bits0}; }
 static u64 duo_pack(const struct duopack *duo, const duo_t1 a, const duo_t2 b) { return (power2(duo->bits0, b)) | a; }
 static duo_t1 duo_first(const struct duopack *duo, const u64 packed) { return packed & duo->mask; }
 static duo_t2 duo_second(const struct duopack *duo, const u64 packed) { return packed >> duo->bits0; }
@@ -93,6 +94,7 @@ typedef u32 tri_t1;
 typedef u32 tri_t2;
 typedef u64 tri_t3;
 
+struct tripack new_tri(const unsigned bits0, const unsigned bits1) { return {bitmask(bits0 + bits1), bits0, bits1}; }
 static u64 tri_pack(const struct tripack *tri, const tri_t1 a, const tri_t2 b, const tri_t3 c) { return power2(tri->bits0 + tri->bits1, c) | ((u64)b << tri->bits0) | a; }
 static tri_t1 tri_first(const struct tripack *tri, const u64 packed) { return packed & (tri->mask2 >> tri->bits1); }
 static tri_t2 tri_second(const struct tripack *tri, const u64 packed) { return (packed & tri->mask2) >> tri->bits0; }
@@ -174,7 +176,7 @@ void layout::redo_maps(int fd)
 }
 
 tier::tier(const struct header &header, const struct header::tierhead &tierhead) :
-	duo(tierhead.sigbits),
+	duo(new_duo(tierhead.sigbits)),
 	mapbits(tierhead.mapbits),
 	stridebits(tierhead.stridebits),
 	locbits(tierhead.locbits),
@@ -939,7 +941,7 @@ shard::shard(struct keymap *map, const struct tier *tier, unsigned i, unsigned t
 	free(endlist), top(power2(linkbits)), // should depend on limit!!!
 	count(0), limit(mul8(map->loadfactor, power2(tablebits))), // must not be more than cells(stride) - 1 (magic)
 	tablebits(tablebits), lowbits(tier->sigbits - tablebits), tx(tier - map->tiers), ix(i >> map->tiershift(*tier)),
-	map(map), tri(linkbits, tier->locbits)
+	map(map), tri(new_tri(linkbits, tier->locbits))
 {
 	assert(tablebits <= linkbits);
 	assert(power2(cellshift, top) <= power2(tier->stridebits));
