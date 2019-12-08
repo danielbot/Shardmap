@@ -103,7 +103,7 @@ struct tripack
 	typedef u32 T1;
 	typedef u32 T2;
 	typedef u64 T3;
-};
+} __attribute__((packed));
 
 struct region { u64 /* is this right? */ size, align; void **mem; loff_t *pos; };
 
