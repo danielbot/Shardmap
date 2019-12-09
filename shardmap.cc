@@ -72,6 +72,7 @@ static unsigned fls(unsigned n)
 
 static unsigned log2_ceiling(unsigned n) { return fls(n - 1); }
 static fixed8 mul8(fixed8 a, unsigned b) { return (a * b) >> 8; }
+static u64 power2(unsigned power, u64 value) { return value << power; }
 
 enum {split_order = 0, totalentries_order = 26};
 

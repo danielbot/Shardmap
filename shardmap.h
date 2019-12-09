@@ -26,13 +26,6 @@ enum {lineshift = 6, linesize = 1 << lineshift, linemask = linesize - 1, linecel
 enum {blocklines = 4, blockcells = blocklines * linecells};
 struct pmblock { cell_t data[blockcells]; };
 
-/* some handy inlines (put these elsewhere!) */
-
-static u64 power2(unsigned power) { return 1LL << power; }
-static u64 power2(unsigned power, u64 value) { return value << power; }
-static u64 bitmask(unsigned bits) { return power2(bits) - 1; }
-static u64 align(u64 n, unsigned bits) { return n + (-n & bitmask(bits)); }
-
 extern "C" { // bigmap.h
 enum {bigmap_maxlevels = 10};
 
