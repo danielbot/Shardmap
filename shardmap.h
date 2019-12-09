@@ -69,13 +69,6 @@ void ext_bigmap_unmap(struct bigmap *map, struct datamap *dm);
 unsigned ext_bigmap_big(struct bigmap *map, struct datamap *dm);
 }
 
-enum {one_fixed8 = 0x100};
-
-typedef u32 count_t; // many places should use this instead of u32!!!
-typedef u64 hashkey_t;
-
-/* ...shardmap.h proper begins below */
-
 /* Variable width field support */
 
 struct duopack
@@ -89,6 +82,11 @@ struct tripack
 	u64 mask2;
 	u8 bits0, bits1;
 } __attribute__((packed));
+
+enum {one_fixed8 = 0x100};
+
+typedef u32 count_t; // many places should use this instead of u32!!!
+typedef u64 hashkey_t;
 
 struct region { u64 /* is this right? */ size, align; void **mem; loff_t *pos; };
 
@@ -307,7 +305,3 @@ struct keymap : bigmap
 	int remove(const char *name, unsigned len);
     int unify();
 };
-
-/* misc cruft */
-
-enum {microlog_size = logsize * sizeof (struct pmblock)};

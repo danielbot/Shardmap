@@ -1,6 +1,7 @@
 #include <x86intrin.h>
 
 enum {noflush = 1, use_clwb = 0, use_intrinsics = 1, streaming = 1, verbose = 0};
+enum {microlog_size = logsize * sizeof (struct pmblock)};
 
 static void clflushopt(volatile void *p)
 {
